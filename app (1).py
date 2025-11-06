@@ -130,7 +130,7 @@ Original file is located at
 # ============================================================
 #  STEP 1️⃣  —  Install Dependencies
 # ============================================================
-pip install streamlit pyngrok --quiet
+#pip install streamlit pyngrok --quiet
 
 # ============================================================
 #  STEP 3️⃣  —  Launch Streamlit in Colab
