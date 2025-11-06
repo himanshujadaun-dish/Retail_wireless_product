@@ -130,7 +130,7 @@ Original file is located at
 # ============================================================
 #  STEP 1️⃣  —  Install Dependencies
 # ============================================================
-!pip install streamlit pyngrok --quiet
+pip install streamlit pyngrok --quiet
 
 # ============================================================
 #  STEP 3️⃣  —  Launch Streamlit in Colab
@@ -146,5 +146,5 @@ ngrok.set_auth_token("357VmRuIPdSFgyB35qwNU1u8TUc_4x3oRAxcDHeWFhVrWAvzc")
 public_url = ngrok.connect(8501)
 print("Public URL →", public_url)
 
-!streamlit run app.py &>/dev/null & sleep 5
+streamlit run app.py &>/dev/null & sleep 5
 print("✅ Streamlit server started!  Click the public URL above to view your app.")
