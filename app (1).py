@@ -1,7 +1,6 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI — Enhanced Streamlit Cloud Version (with Categories & FAQs)
+# Wireless Cortex AI — Full Interactive Version (Categories + FAQs + Persistent Chat)
 # ------------------------------------------------------------
-
 import streamlit as st
 import time
 
@@ -43,7 +42,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # ------------------------------------------------------------
 # 2. SIDEBAR - CONTEXT AND CONTROLS
 # ------------------------------------------------------------
@@ -71,18 +69,24 @@ with st.sidebar:
 
 
 # ------------------------------------------------------------
-# 3. MAIN INTERFACE - CHAT WINDOW
+# 3. MAIN CHAT + CATEGORY SECTIONS
 # ------------------------------------------------------------
 st.title("📶 Retail Wireless Assistant")
 
-# Initialize chat history
+# Initialize session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "show_intro" not in st.session_state:
+    st.session_state.show_intro = True
+
+# Display welcome only once
+if st.session_state.show_intro:
     with st.chat_message("assistant", avatar="🤖"):
         st.write("Hello! I'm your **Cortex AI Wireless Expert**.")
         st.write("How can I help you today?")
+    st.session_state.show_intro = False
 
-# Define FAQs for each category
+# Define FAQs
 faq_categories = {
     "Sales": [
         "What were the top-selling devices last month?",
@@ -121,66 +125,69 @@ faq_categories = {
     ]
 }
 
+# ------------------------------------------------------------
+# 4. DISPLAY CHAT HISTORY
+# ------------------------------------------------------------
+for message in st.session_state.messages:
+    with st.chat_message(message["role"], avatar=message["avatar"]):
+        st.markdown(message["content"])
 
 # ------------------------------------------------------------
-# Display chat or category menu
+# 5. DISPLAY CATEGORY & FAQ MENU (ALWAYS VISIBLE ABOVE INPUT)
 # ------------------------------------------------------------
-if len(st.session_state.messages) == 0:
-    st.markdown("### 💬 Choose a topic below to explore common questions:")
+st.markdown("### 💬 Choose a topic or ask a custom question below:")
 
-    for category, questions in faq_categories.items():
+cols = st.columns(3)
+col_map = list(faq_categories.items())
+
+for i, (category, questions) in enumerate(col_map):
+    with cols[i % 3]:
         with st.container():
             st.markdown(f"<div class='category-card'><div class='category-title'>{category}</div>", unsafe_allow_html=True)
-            cols = st.columns(2)
-            for i, q in enumerate(questions):
-                col = cols[i % 2]
-                if col.button(q, key=f"{category}_{i}", use_container_width=True):
+            for j, q in enumerate(questions):
+                if st.button(q, key=f"{category}_{j}", use_container_width=True):
                     st.session_state.messages.append({"role": "user", "avatar": "👤", "content": q})
                     st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-else:
-    # Display chat history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"], avatar=message["avatar"]):
-            st.markdown(message["content"])
+# ------------------------------------------------------------
+# 6. USER CHAT INPUT (ALWAYS SHOWN)
+# ------------------------------------------------------------
+if prompt := st.chat_input("Ask about sales, devices, or logistics…"):
+    st.session_state.messages.append({"role": "user", "avatar": "👤", "content": prompt})
+    with st.chat_message("user", avatar="👤"):
+        st.markdown(prompt)
 
-    # --- Chat input ---
-    if prompt := st.chat_input("Ask about plans, devices, or your account…"):
-        st.session_state.messages.append({"role": "user", "avatar": "👤", "content": prompt})
-        with st.chat_message("user", avatar="👤"):
-            st.markdown(prompt)
+    with st.chat_message("assistant", avatar="🤖"):
+        with st.spinner(f"Cortex AI is consulting the {selected_model} model…"):
+            time.sleep(1)
 
-        with st.chat_message("assistant", avatar="🤖"):
-            with st.spinner(f"Cortex AI is consulting the {selected_model} model…"):
-                time.sleep(1)
+        response = (
+            f"That's a great question! Based on your **{st.session_state.get('plan', 'Unlimited 5G Pro')}** plan, "
+            f"I’ll fetch the most recent insights on that topic shortly."
+        )
 
-            response = (
-                f"That’s a great question! Based on your **{st.session_state.get('plan', 'Unlimited 5G Pro')}** plan, "
-                f"I can retrieve the latest details for you shortly."
-            )
+        # Typing animation
+        full_response, placeholder = "", st.empty()
+        for word in response.split():
+            full_response += word + " "
+            placeholder.markdown(full_response + "▌")
+            time.sleep(0.03)
+        placeholder.markdown(full_response)
 
-            # Typing animation
-            full_response, placeholder = "", st.empty()
-            for word in response.split():
-                full_response += word + " "
-                placeholder.markdown(full_response + "▌")
-                time.sleep(0.04)
-            placeholder.markdown(full_response)
+        st.session_state.messages.append(
+            {"role": "assistant", "avatar": "🤖", "content": full_response}
+        )
 
-            st.session_state.messages.append(
-                {"role": "assistant", "avatar": "🤖", "content": full_response}
-            )
+        st.markdown("---")
+        st.subheader("Next Steps")
+        c1, c2, c3 = st.columns(3)
+        with c1: st.button("💰 Get Quote", key="quote")
+        with c2: st.button("🔗 View Specs", key="specs")
+        with c3: st.button("⚙️ Start Upgrade", key="upgrade")
 
-            st.markdown("---")
-            st.subheader("Next Steps")
-            c1, c2, c3 = st.columns(3)
-            with c1: st.button("💰 Get Quote", key="quote")
-            with c2: st.button("🔗 View Specs", key="specs")
-            with c3: st.button("⚙️ Start Upgrade", key="upgrade")
-
-            with st.expander("📚 Sources & References"):
-                st.markdown("""
-                * **Product Catalog:** iPhone 16 Pro Max Q4-2025.pdf  
-                * **Policy:** Upgrade Eligibility Matrix v1.2
-                """)
+        with st.expander("📚 Sources & References"):
+            st.markdown("""
+            * **Product Catalog:** iPhone 16 Pro Max Q4-2025.pdf  
+            * **Policy:** Upgrade Eligibility Matrix v1.2
+            """)
