@@ -146,5 +146,5 @@ ngrok.set_auth_token("357VmRuIPdSFgyB35qwNU1u8TUc_4x3oRAxcDHeWFhVrWAvzc")
 public_url = ngrok.connect(8501)
 print("Public URL →", public_url)
 
-streamlit run app.py &>/dev/null & sleep 5
+#streamlit run app.py &>/dev/null & sleep 5
 print("✅ Streamlit server started!  Click the public URL above to view your app.")
