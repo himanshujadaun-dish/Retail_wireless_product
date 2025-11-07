@@ -1,11 +1,12 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v3.2 — Fixed reruns + Category Cards + SQL + Charts
+# Wireless Cortex AI v4.0 — Enterprise Demo Build
 # ------------------------------------------------------------
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import time
 from datetime import datetime
+import random
 
 # ------------------------------------------------------------
 # PAGE CONFIG
@@ -23,19 +24,21 @@ if "theme" not in st.session_state:
     st.session_state.theme = "light"
 
 # ------------------------------------------------------------
-# THEME HANDLING
+# THEME SETTINGS
 # ------------------------------------------------------------
 if st.session_state.theme == "light":
     bg_grad = "linear-gradient(180deg, #f9fbfd 0%, #f0f4f8 100%)"
     header_grad = "linear-gradient(90deg, #004b91, #007acc)"
     text_color = "#000000"
+    box_color = "white"
 else:
     bg_grad = "linear-gradient(180deg, #1e1e1e 0%, #2c2c2c 100%)"
     header_grad = "linear-gradient(90deg, #111, #222)"
     text_color = "#ffffff"
+    box_color = "#2c2c2c"
 
 # ------------------------------------------------------------
-# CUSTOM STYLES
+# STYLES
 # ------------------------------------------------------------
 st.markdown(f"""
 <style>
@@ -54,7 +57,7 @@ header, footer {{visibility: hidden;}}
     max-width: 80%;
 }}
 .chat-bubble-bot {{
-    background-color: #ffffff;
+    background-color: {box_color};
     padding: 10px 15px;
     border-radius: 15px;
     margin: 5px 0;
@@ -69,10 +72,21 @@ header, footer {{visibility: hidden;}}
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     margin-bottom: 10px;
 }}
-.category-title {{
+.kpi-card {{
+    background-color: white;
+    border-radius: 15px;
+    padding: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    text-align: center;
+}}
+.kpi-value {{
+    font-size: 24px;
     font-weight: bold;
-    font-size: 18px;
-    margin-bottom: 5px;
+    color: #0056b3;
+}}
+.kpi-label {{
+    color: gray;
+    font-size: 14px;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -83,7 +97,6 @@ header, footer {{visibility: hidden;}}
 with st.sidebar:
     st.title("🕘 Chat History")
 
-    # Saved chats
     if st.session_state.chat_sessions:
         for i, session in enumerate(reversed(st.session_state.chat_sessions)):
             if st.button(f"💬 Chat {len(st.session_state.chat_sessions)-i} – {session['timestamp']}", use_container_width=True):
@@ -94,12 +107,14 @@ with st.sidebar:
 
     st.markdown("---")
 
+    # Toggle Theme
     if st.button("🌓 Toggle Dark / Light Mode", use_container_width=True):
         st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
         st.rerun()
 
     st.markdown("---")
 
+    # Download chat
     if st.session_state.messages:
         chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
         st.download_button("⬇️ Download Current Chat", chat_text, "WirelessCortexChat.txt")
@@ -113,7 +128,7 @@ with st.sidebar:
         st.rerun()
 
 # ------------------------------------------------------------
-# HEADER
+# HEADER + NAVBAR
 # ------------------------------------------------------------
 st.markdown(f"""
 <div style='text-align:center; padding:15px 0; background:{header_grad}; color:white; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.2);'>
@@ -122,11 +137,63 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-c1, c2 = st.columns(2)
-c1.metric("Data Refreshed", "Nov 7, 2025")
-c2.metric("Active Data Sources", "4")
+st.markdown(
+    """
+    <div style="display:flex;justify-content:center;gap:25px;margin-top:10px;">
+      <a href="#" style="text-decoration:none;color:#007acc;font-weight:500;">🏠 Home</a>
+      <a href="#" style="text-decoration:none;color:#007acc;font-weight:500;">📊 Dashboards</a>
+      <a href="#" style="text-decoration:none;color:#007acc;font-weight:500;">💬 Chat</a>
+      <a href="#" style="text-decoration:none;color:#007acc;font-weight:500;">📘 Help</a>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.markdown("---")
+
+# ------------------------------------------------------------
+# KPI OVERVIEW
+# ------------------------------------------------------------
+st.subheader("📈 Cortex Quick Overview")
+
+kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+with kpi_col1:
+    st.markdown("<div class='kpi-card'><div class='kpi-value'>96.3%</div><div class='kpi-label'>Forecast Accuracy</div></div>", unsafe_allow_html=True)
+with kpi_col2:
+    st.markdown("<div class='kpi-card'><div class='kpi-value'>420</div><div class='kpi-label'>Active SKUs</div></div>", unsafe_allow_html=True)
+with kpi_col3:
+    st.markdown("<div class='kpi-card'><div class='kpi-value'>4</div><div class='kpi-label'>Distribution Channels</div></div>", unsafe_allow_html=True)
+with kpi_col4:
+    st.markdown("<div class='kpi-card'><div class='kpi-value'>3</div><div class='kpi-label'>Delayed Shipments</div></div>", unsafe_allow_html=True)
+
+st.markdown("")
+
+# ------------------------------------------------------------
+# DATA SOURCE STATUS PANEL
+# ------------------------------------------------------------
+with st.expander("🧩 Active Data Sources"):
+    st.markdown("""
+    | Data Source | Status |
+    |--------------|--------|
+    | 🛒 Sales | ✅ Connected |
+    | 🏭 Inventory | ✅ Connected |
+    | 🚚 Shipments | ✅ Connected |
+    | 💲 Pricing | ✅ Connected |
+    | 📈 Forecast | ✅ Connected |
+    """)
+st.markdown("---")
+
+# ------------------------------------------------------------
+# DEMO CHART
+# ------------------------------------------------------------
+if not st.session_state.messages:
+    demo_df = pd.DataFrame({
+        "Month": ["July", "Aug", "Sept", "Oct", "Nov"],
+        "Sales": [random.randint(5000, 10000) for _ in range(5)]
+    })
+    fig_demo = px.line(demo_df, x="Month", y="Sales", markers=True,
+                       title="📊 Monthly Device Sales Trend")
+    st.plotly_chart(fig_demo, use_container_width=True)
 
 # ------------------------------------------------------------
 # STATIC RESPONSES & SQL
@@ -218,8 +285,10 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
     user_input = st.session_state.messages[-1]["content"]
     topic = next((t for t in faq_responses if t in user_input.lower()), None)
 
-    with st.spinner("Cortex AI is analyzing..."):
-        time.sleep(1)
+    with st.spinner("🤖 Cortex AI is thinking..."):
+        for step in ["Analyzing data", "Querying Snowflake", "Aggregating metrics", "Generating insights"]:
+            st.write(f"🔍 {step}...")
+            time.sleep(0.5)
 
     response = faq_responses.get(topic, "⚠️ LIMITED DATA — WORKING ON GETTING MORE DATA SOURCES IN.")
     st.session_state.messages.append({"role": "bot", "content": response})
@@ -249,6 +318,12 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("No chart available — limited data.")
+
+    # FOLLOW-UP SUGGESTIONS
+    st.markdown("#### 💡 You might also want to ask:")
+    st.write("- Show weekly forecast accuracy trend.")
+    st.write("- Compare iPhone vs Samsung YoY.")
+    st.write("- List top 10 underperforming SKUs.")
 
     # SAVE SESSION
     st.session_state.chat_sessions.append({
