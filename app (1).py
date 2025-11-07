@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI — Full Professional Version (Chat Sessions + SQL + Charts + Theme)
+# Wireless Cortex AI v3.1 — Categories + Auto-Save + SQL + Charts + Theme
 # ------------------------------------------------------------
 import streamlit as st
 import pandas as pd
@@ -13,17 +13,17 @@ from datetime import datetime
 st.set_page_config(page_title="Wireless Cortex AI", page_icon="📶", layout="wide")
 
 # ------------------------------------------------------------
-# INITIALIZE STATE
+# STATE
 # ------------------------------------------------------------
 if "chat_sessions" not in st.session_state:
-    st.session_state.chat_sessions = []  # List of sessions
+    st.session_state.chat_sessions = []
 if "messages" not in st.session_state:
-    st.session_state.messages = []  # Current chat
+    st.session_state.messages = []
 if "theme" not in st.session_state:
     st.session_state.theme = "light"
 
 # ------------------------------------------------------------
-# THEME SWITCHER
+# THEME SETTINGS
 # ------------------------------------------------------------
 if st.session_state.theme == "light":
     bg_grad = "linear-gradient(180deg, #f9fbfd 0%, #f0f4f8 100%)"
@@ -71,7 +71,6 @@ header, footer {{visibility: hidden;}}
 with st.sidebar:
     st.title("🕘 Chat History")
 
-    # Display saved sessions
     if st.session_state.chat_sessions:
         for i, session in enumerate(reversed(st.session_state.chat_sessions)):
             if st.button(f"💬 Chat {len(st.session_state.chat_sessions)-i} – {session['timestamp']}", use_container_width=True):
@@ -81,21 +80,16 @@ with st.sidebar:
         st.caption("No saved chats yet.")
 
     st.markdown("---")
-
-    # Theme toggle
     if st.button("🌓 Toggle Dark / Light Mode", use_container_width=True):
         st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
         st.experimental_rerun()
 
     st.markdown("---")
-
-    # Download chat
     if st.session_state.messages:
         chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
         st.download_button("⬇️ Download Current Chat", chat_text, "WirelessCortexChat.txt")
     else:
         st.caption("💡 Ask something to start a chat.")
-
     st.markdown("---")
     if st.button("🗑️ Start New Chat", use_container_width=True):
         st.session_state.messages = []
@@ -136,33 +130,82 @@ sql_templates = {
     "forecast": "SELECT SKU, Forecast_Units, Actual_Units, (Forecast_Units-Actual_Units) AS Variance FROM FORECAST_SUMMARY WHERE PERIOD='2025-Q4';"
 }
 
+categories = {
+    "Sales": [
+        "What were the top-selling devices last month?",
+        "Show me sales trends by channel.",
+        "Which SKUs have the highest return rate?",
+        "Compare iPhone vs Samsung sales this quarter.",
+        "What are the sales forecasts for next month?"
+    ],
+    "Inventory": [
+        "Which SKUs are low in stock?",
+        "Show inventory aging by warehouse.",
+        "How many iPhone 16 units are in Denver DC?",
+        "List SKUs with overstock conditions.",
+        "What's the daily inventory update feed?"
+    ],
+    "Shipments": [
+        "Show delayed shipments by DDP.",
+        "How many units shipped this week?",
+        "Which SKUs are pending shipment confirmation?",
+        "Track shipment status for iPhone 16 Pro Max.",
+        "List DDPs with recurring delays."
+    ],
+    "Pricing": [
+        "Show current device pricing by channel.",
+        "Which SKUs had price drops this week?",
+        "Compare MSRP vs promo prices.",
+        "Show competitor pricing insights.",
+        "What’s the margin for iPhone 16 Pro Max?"
+    ],
+    "Forecast": [
+        "Show activation forecast by SKU.",
+        "Compare actual vs forecast for Q3.",
+        "Which SKUs are forecasted to grow fastest?",
+        "Show forecast accuracy trend by month.",
+        "Update forecast model inputs from Dataiku."
+    ]
+}
+
 # ------------------------------------------------------------
-# DISPLAY CHAT
+# INITIAL PROMPT + CATEGORY PANEL (shown only if no messages)
 # ------------------------------------------------------------
 if not st.session_state.messages:
     st.info("💬 Hi! I’m Cortex AI. Ask me about Sales, Inventory, Shipments, Pricing, or Forecasts.")
+    st.markdown("### 📊 Choose a Data Category or ask a custom question below:")
+    for category, questions in categories.items():
+        with st.expander(category):
+            for i, q in enumerate(questions):
+                if st.button(q, key=f"{category}_{i}"):
+                    st.session_state.messages.append({"role": "user", "content": q})
+                    st.experimental_rerun()
 
+# ------------------------------------------------------------
+# DISPLAY EXISTING CHAT
+# ------------------------------------------------------------
 for msg in st.session_state.messages:
     bubble_class = "chat-bubble-user" if msg["role"] == "user" else "chat-bubble-bot"
     st.markdown(f"<div class='{bubble_class}'>{msg['content']}</div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
-# CHAT INPUT
+# PROCESS INPUT OR CLICKED QUESTION
 # ------------------------------------------------------------
 if prompt := st.chat_input("Ask your question here..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # Intent detection
+if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+    user_input = st.session_state.messages[-1]["content"]
+
     topic = None
     for key in faq_responses.keys():
-        if key in prompt.lower():
+        if key in user_input.lower():
             topic = key
             break
 
     with st.spinner("Cortex AI is analyzing..."):
         time.sleep(1)
 
-    # Response
     if topic:
         answer = faq_responses[topic]
     else:
@@ -170,13 +213,10 @@ if prompt := st.chat_input("Ask your question here..."):
     st.session_state.messages.append({"role": "bot", "content": answer})
     st.markdown(f"<div class='chat-bubble-bot'>{answer}</div>", unsafe_allow_html=True)
 
-    # --------------------------------------------------------
-    # EXPANDABLE SQL + RESULTS + CHART
-    # --------------------------------------------------------
+    # SQL + Results + Chart
     with st.expander("🧾 View SQL Query"):
         st.code(sql_templates.get(topic, "-- No SQL available for this query."), language="sql")
 
-    # Tabs
     tab1, tab2 = st.tabs(["📋 Results", "📊 Chart"])
     with tab1:
         if topic:
@@ -201,9 +241,7 @@ if prompt := st.chat_input("Ask your question here..."):
         else:
             st.warning("No chart available — limited data.")
 
-    # --------------------------------------------------------
-    # AUTO-SAVE SESSION
-    # --------------------------------------------------------
+    # Auto-save
     st.session_state.chat_sessions.append({
         "timestamp": datetime.now().strftime("%b %d, %I:%M %p"),
         "messages": st.session_state.messages.copy()
