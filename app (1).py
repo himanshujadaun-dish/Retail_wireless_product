@@ -1,19 +1,7 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v5.1 — Plotly Edition
+# Wireless Cortex AI v5.1 — Plotly Edition (Final Fixed)
 # ------------------------------------------------------------
-# Features:
-# • Persistent Dark/Light Mode
-# • Soft Chat Bubbles + Fade-in Animation
-# • Animated “Thinking…” Loader
-# • Smart Answers + Fallback
-# • KPI Cards + Active Data Sources Dropdown
-# • Suggested Question Layer (5 Data Sources)
-# • SQL + Plotly Charts (Bar, Line, Scatter, Area, Pie)
-# • Thumbs Feedback Logging (mock)
-# • Download Chat (.txt)
-# • Info Sheet Link (Google)
-# • Auto-scroll + Multi-session History
-# • App Footer (v5.1 – Nov 2025)
+# Designed for Demo & Deployment (Streamlit 1.39+)
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -70,10 +58,11 @@ st.markdown(f"""
 with st.sidebar:
     st.title("⚙️ Cortex Controls")
 
-    # Chat history
-    st.subheader("💬 Chat History")
+    # ✅ FIX: Initialize chat_sessions early
     if "chat_sessions" not in st.session_state:
         st.session_state.chat_sessions = {}
+
+    st.subheader("💬 Chat History")
     session_keys = list(st.session_state.chat_sessions.keys())
     if session_keys:
         chosen = st.radio("Previous Chats", session_keys)
