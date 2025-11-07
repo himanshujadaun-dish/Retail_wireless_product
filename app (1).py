@@ -1,7 +1,7 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v5.1 — Plotly Edition (Final Fixed)
+# Wireless Cortex AI v5.2 — Plotly Edition (Dropdown + Fixed Theme)
 # ------------------------------------------------------------
-# Designed for Demo & Deployment (Streamlit 1.39+)
+# Adds: Working Dark/Light Toggle + Dropdown Suggested Questions
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -11,56 +11,71 @@ import plotly.express as px
 from io import StringIO
 
 # ------------------------------------------------------------
-# 1. PAGE CONFIG & THEME
+# 1. PAGE CONFIG
 # ------------------------------------------------------------
 st.set_page_config(page_title="Wireless Cortex AI", page_icon="📶", layout="wide")
 
+# ------------------------------------------------------------
+# 2. SESSION STATE INITIALIZATION
+# ------------------------------------------------------------
 if "theme_mode" not in st.session_state:
     st.session_state.theme_mode = "light"
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "chat_sessions" not in st.session_state:
+    st.session_state.chat_sessions = {}
+if "feedback_log" not in st.session_state:
+    st.session_state.feedback_log = []
 
+# ------------------------------------------------------------
+# 3. THEME HANDLING
+# ------------------------------------------------------------
 def toggle_theme():
     st.session_state.theme_mode = "dark" if st.session_state.theme_mode == "light" else "light"
 
-bg_light = "#f5f7fb"
-bg_dark = "#121212"
-accent_blue = "#007bff"
-text_light = "#ffffff"
-text_dark = "#000000"
-
-theme_bg = bg_dark if st.session_state.theme_mode == "dark" else bg_light
-theme_text = text_light if st.session_state.theme_mode == "dark" else text_dark
+theme = st.session_state.theme_mode
+theme_bg = "#0e1117" if theme == "dark" else "#f5f7fb"
+theme_text = "#fafafa" if theme == "dark" else "#000000"
+theme_card = "#1c1c1c" if theme == "dark" else "#ffffff"
+theme_accent = "#007bff"
 
 st.markdown(f"""
-    <style>
-    .stApp {{
-        background-color: {theme_bg};
-        color: {theme_text};
-    }}
-    .chat-bubble-user {{
-        background-color: #ffffff; color:#000; padding:10px 14px;
-        border-radius:15px; margin:8px 0; max-width:80%;
-    }}
-    .chat-bubble-ai {{
-        background-color:#e6f2ff; color:#000; padding:10px 14px;
-        border-radius:15px; margin:8px 0; max-width:80%;
-        animation: fadeIn 0.5s ease-in;
-    }}
-    @keyframes fadeIn {{
-        from {{opacity:0; transform:translateY(5px);}}
-        to {{opacity:1; transform:translateY(0);}}
-    }}
-    </style>
+<style>
+.stApp {{
+    background-color: {theme_bg};
+    color: {theme_text};
+}}
+.chat-bubble-user {{
+    background-color: {theme_card};
+    color: {theme_text};
+    padding: 10px 14px;
+    border-radius: 15px;
+    margin: 8px 0;
+    max-width: 80%;
+    box-shadow: 0 0 4px rgba(0,0,0,0.2);
+}}
+.chat-bubble-ai {{
+    background-color: #e6f2ff;
+    color: black;
+    padding: 10px 14px;
+    border-radius: 15px;
+    margin: 8px 0;
+    max-width: 80%;
+    box-shadow: 0 0 4px rgba(0,0,0,0.1);
+    animation: fadeIn 0.4s ease-in;
+}}
+@keyframes fadeIn {{
+    from {{opacity: 0; transform: translateY(5px);}}
+    to {{opacity: 1; transform: translateY(0);}}
+}}
+</style>
 """, unsafe_allow_html=True)
 
 # ------------------------------------------------------------
-# 2. SIDEBAR
+# 4. SIDEBAR
 # ------------------------------------------------------------
 with st.sidebar:
     st.title("⚙️ Cortex Controls")
-
-    # ✅ FIX: Initialize chat_sessions early
-    if "chat_sessions" not in st.session_state:
-        st.session_state.chat_sessions = {}
 
     st.subheader("💬 Chat History")
     session_keys = list(st.session_state.chat_sessions.keys())
@@ -73,7 +88,7 @@ with st.sidebar:
         st.caption("No previous chats yet.")
 
     if st.button("🗑️ Start New Chat", use_container_width=True):
-        if "messages" in st.session_state and st.session_state.messages:
+        if st.session_state.messages:
             name = f"Chat {len(st.session_state.chat_sessions)+1}"
             st.session_state.chat_sessions[name] = st.session_state.messages
         st.session_state.messages = []
@@ -91,7 +106,7 @@ with st.sidebar:
     )
 
     if st.button("⬇️ Download Current Chat", use_container_width=True):
-        if "messages" in st.session_state and st.session_state.messages:
+        if st.session_state.messages:
             buffer = StringIO()
             for msg in st.session_state.messages:
                 role = "USER" if msg["role"] == "user" else "CORTEX"
@@ -106,10 +121,10 @@ with st.sidebar:
             st.warning("No chat to download yet.")
 
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v5.1 | Last Updated Nov 2025**")
+    st.caption("**Wireless Cortex AI v5.2 | Last Updated Nov 2025**")
 
 # ------------------------------------------------------------
-# 3. KPI CARDS
+# 5. HEADER + KPI CARDS
 # ------------------------------------------------------------
 st.markdown(
     """
@@ -131,68 +146,57 @@ with cols[3]:
     st.selectbox("🌐 Active Data Sources", connected)
 
 # ------------------------------------------------------------
-# 4. SUGGESTED QUESTION LAYER
+# 6. SUGGESTED QUESTION DROPDOWNS
 # ------------------------------------------------------------
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "feedback_log" not in st.session_state:
-    st.session_state.feedback_log = []
+faq = {
+    "Sales": [
+        "What were the top-selling devices last month?",
+        "Show me sales trends by channel.",
+        "Which SKUs have the highest return rate?",
+        "Compare iPhone vs Samsung sales this quarter.",
+        "What are the sales forecasts for next month?",
+    ],
+    "Inventory": [
+        "Which SKUs are low in stock?",
+        "Show inventory aging by warehouse.",
+        "How many iPhone 16 units are in Denver DC?",
+        "List SKUs with overstock conditions.",
+        "What's the daily inventory update feed?",
+    ],
+    "Shipments": [
+        "Show delayed shipments by DDP.",
+        "How many units shipped this week?",
+        "Which SKUs are pending shipment confirmation?",
+        "Track shipment status for iPhone 16 Pro Max.",
+        "List DDPs with recurring delays.",
+    ],
+    "Pricing": [
+        "Show current device pricing by channel.",
+        "Which SKUs had price drops this week?",
+        "Compare MSRP vs promo prices.",
+        "Show competitor pricing insights.",
+        "What’s the margin for iPhone 16 Pro Max?",
+    ],
+    "Forecast": [
+        "Show activation forecast by SKU.",
+        "Compare actual vs forecast for Q3.",
+        "Which SKUs are forecasted to grow fastest?",
+        "Show forecast accuracy trend by month.",
+        "Update forecast model inputs from Dataiku.",
+    ],
+}
 
 if not st.session_state.messages:
     st.markdown("### 💬 Choose an option below for suggested questions or ask a question")
-    faq = {
-        "Sales": [
-            "What were the top-selling devices last month?",
-            "Show me sales trends by channel.",
-            "Which SKUs have the highest return rate?",
-            "Compare iPhone vs Samsung sales this quarter.",
-            "What are the sales forecasts for next month?",
-        ],
-        "Inventory": [
-            "Which SKUs are low in stock?",
-            "Show inventory aging by warehouse.",
-            "How many iPhone 16 units are in Denver DC?",
-            "List SKUs with overstock conditions.",
-            "What's the daily inventory update feed?",
-        ],
-        "Shipments": [
-            "Show delayed shipments by DDP.",
-            "How many units shipped this week?",
-            "Which SKUs are pending shipment confirmation?",
-            "Track shipment status for iPhone 16 Pro Max.",
-            "List DDPs with recurring delays.",
-        ],
-        "Pricing": [
-            "Show current device pricing by channel.",
-            "Which SKUs had price drops this week?",
-            "Compare MSRP vs promo prices.",
-            "Show competitor pricing insights.",
-            "What’s the margin for iPhone 16 Pro Max?",
-        ],
-        "Forecast": [
-            "Show activation forecast by SKU.",
-            "Compare actual vs forecast for Q3.",
-            "Which SKUs are forecasted to grow fastest?",
-            "Show forecast accuracy trend by month.",
-            "Update forecast model inputs from Dataiku.",
-        ],
-    }
-    cols = st.columns(2)
-    for i, (cat, qs) in enumerate(faq.items()):
-        with cols[i % 2]:
-            box_color = "#ffffff" if st.session_state.theme_mode == "light" else "#1e1e1e"
-            st.markdown(
-                f"<div style='background:{box_color};padding:15px;border-radius:12px;"
-                "box-shadow:0 0 8px rgba(0,0,0,0.1);margin-bottom:10px;'>"
-                f"<strong>{cat}</strong><br>", unsafe_allow_html=True)
-            for j, q in enumerate(qs):
-                if st.button(q, key=f"{cat}_{j}", use_container_width=True):
-                    st.session_state.messages.append({"role":"user","content":q})
-                    st.experimental_rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+    for category, questions in faq.items():
+        with st.expander(f"📂 {category}"):
+            question = st.selectbox(f"Select a {category} question:", ["-- Choose --"] + questions, key=f"dd_{category}")
+            if question != "-- Choose --":
+                st.session_state.messages.append({"role": "user", "content": question})
+                st.experimental_rerun()
 
 # ------------------------------------------------------------
-# 5. ANSWERS DATABASE (mock)
+# 7. MOCK ANSWERS
 # ------------------------------------------------------------
 answers = {
     "sales": "📊 Last month’s top devices were iPhone 16 Pro Max and Samsung A15. Sales in Indirect channels rose 12%.",
@@ -203,7 +207,7 @@ answers = {
 }
 
 # ------------------------------------------------------------
-# 6. DISPLAY CHAT HISTORY
+# 8. DISPLAY CHAT HISTORY
 # ------------------------------------------------------------
 for msg in st.session_state.messages:
     if msg["role"] == "user":
@@ -212,47 +216,55 @@ for msg in st.session_state.messages:
         st.markdown(f"<div class='chat-bubble-ai'>🤖 {msg['content']}</div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
-# 7. CHAT INPUT + RESPONSE LOGIC
+# 9. CHAT INPUT + LOGIC
 # ------------------------------------------------------------
 prompt = st.chat_input("Ask about sales, devices, or logistics…")
 
 if prompt:
-    st.session_state.messages.append({"role":"user","content":prompt})
-    with st.spinner("🤖 Cortex AI is thinking …"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.spinner("🤖 Cortex AI is thinking..."):
         time.sleep(1.5)
+
     lower = prompt.lower()
     found = next((answers[k] for k in answers if k in lower), None)
     reply = found or "⚠️ DATA NOT AVAILABLE — WORKING ON GETTING IN MORE DATA SOURCES."
-    st.session_state.messages.append({"role":"assistant","content":reply})
+    st.session_state.messages.append({"role": "assistant", "content": reply})
 
-    # mock SQL + results + chart
+    # SQL & chart
     sql = f"SELECT * FROM demo_table WHERE topic LIKE '%{prompt[:20]}%';"
     df = pd.DataFrame({
-        "SKU":["A15","A16","iPhone 16","Moto G"],
-        "Sales":[random.randint(1000,3000) for _ in range(4)],
-        "Forecast":[random.randint(1000,3000) for _ in range(4)],
+        "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
+        "Sales": [random.randint(1000, 3000) for _ in range(4)],
+        "Forecast": [random.randint(1000, 3000) for _ in range(4)],
     })
+
     with st.expander("🧮 View SQL Query Used"):
         st.code(sql, language="sql")
-    tab1, tab2 = st.tabs(["📊 Results","📈 Chart"])
+
+    tab1, tab2 = st.tabs(["📊 Results", "📈 Chart"])
     with tab1:
         st.dataframe(df, use_container_width=True)
     with tab2:
-        chart_type = st.selectbox("Chart Type",["Bar","Line","Scatter","Area","Pie"],key="chart")
-        if chart_type=="Bar": fig=px.bar(df,x="SKU",y=["Sales","Forecast"])
-        elif chart_type=="Line": fig=px.line(df,x="SKU",y=["Sales","Forecast"])
-        elif chart_type=="Scatter": fig=px.scatter(df,x="SKU",y="Sales",size="Forecast")
-        elif chart_type=="Area": fig=px.area(df,x="SKU",y=["Sales","Forecast"])
-        else: fig=px.pie(df,names="SKU",values="Sales")
-        st.plotly_chart(fig,use_container_width=True)
+        chart_type = st.selectbox("Chart Type", ["Bar", "Line", "Scatter", "Area", "Pie"], key="chart")
+        if chart_type == "Bar":
+            fig = px.bar(df, x="SKU", y=["Sales", "Forecast"])
+        elif chart_type == "Line":
+            fig = px.line(df, x="SKU", y=["Sales", "Forecast"])
+        elif chart_type == "Scatter":
+            fig = px.scatter(df, x="SKU", y="Sales", size="Forecast")
+        elif chart_type == "Area":
+            fig = px.area(df, x="SKU", y=["Sales", "Forecast"])
+        else:
+            fig = px.pie(df, names="SKU", values="Sales")
+        st.plotly_chart(fig, use_container_width=True)
 
-    # feedback buttons
-    fb = st.columns([0.1,0.1,0.8])
+    # feedback
+    fb = st.columns([0.1, 0.1, 0.8])
     with fb[0]:
         if st.button("👍", key=f"up_{len(st.session_state.messages)}"):
-            st.session_state.feedback_log.append({"q":prompt,"fb":"up"})
+            st.session_state.feedback_log.append({"q": prompt, "fb": "up"})
     with fb[1]:
         if st.button("👎", key=f"down_{len(st.session_state.messages)}"):
-            st.session_state.feedback_log.append({"q":prompt,"fb":"down"})
+            st.session_state.feedback_log.append({"q": prompt, "fb": "down"})
 
     st.experimental_rerun()
