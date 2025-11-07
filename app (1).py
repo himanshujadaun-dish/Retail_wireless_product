@@ -1,263 +1,212 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI — Advanced Interactive Version
+# Wireless Cortex AI — Full Professional Version (Chat Sessions + SQL + Charts + Theme)
 # ------------------------------------------------------------
 import streamlit as st
-import time
 import pandas as pd
 import plotly.express as px
-import random
+import time
+from datetime import datetime
 
 # ------------------------------------------------------------
-# PAGE CONFIGURATION
+# PAGE CONFIG
 # ------------------------------------------------------------
-st.set_page_config(
-    page_title="Wireless Cortex AI",
-    page_icon="📶",
-    layout="wide"
-)
+st.set_page_config(page_title="Wireless Cortex AI", page_icon="📶", layout="wide")
 
 # ------------------------------------------------------------
-# CSS STYLING
+# INITIALIZE STATE
 # ------------------------------------------------------------
-st.markdown("""
+if "chat_sessions" not in st.session_state:
+    st.session_state.chat_sessions = []  # List of sessions
+if "messages" not in st.session_state:
+    st.session_state.messages = []  # Current chat
+if "theme" not in st.session_state:
+    st.session_state.theme = "light"
+
+# ------------------------------------------------------------
+# THEME SWITCHER
+# ------------------------------------------------------------
+if st.session_state.theme == "light":
+    bg_grad = "linear-gradient(180deg, #f9fbfd 0%, #f0f4f8 100%)"
+    header_grad = "linear-gradient(90deg, #004b91, #007acc)"
+    text_color = "#000000"
+else:
+    bg_grad = "linear-gradient(180deg, #1e1e1e 0%, #2c2c2c 100%)"
+    header_grad = "linear-gradient(90deg, #111, #222)"
+    text_color = "#ffffff"
+
+# ------------------------------------------------------------
+# STYLES
+# ------------------------------------------------------------
+st.markdown(f"""
 <style>
-.stApp {
-    background-color: #f5f7fa;
-    font-family: "Segoe UI", sans-serif;
-}
-header, footer {visibility: hidden;}
-.category-card {
-    background-color: white;
-    padding: 15px;
+.stApp {{
+    background: {bg_grad};
+    color: {text_color};
+    font-family: 'Segoe UI', sans-serif;
+}}
+header, footer {{visibility: hidden;}}
+.chat-bubble-user {{
+    background-color: #e8f3ff;
+    padding: 10px 15px;
     border-radius: 15px;
-    box-shadow: 0 0 8px rgba(0,0,0,0.1);
-    margin-bottom: 10px;
-    transition: all 0.2s ease-in-out;
-}
-.category-card:hover {
-    background-color:#f8fbff;
-    transform: translateY(-3px);
-    box-shadow:0 4px 12px rgba(0,0,0,0.15);
-}
-.category-title {
-    font-weight: 700;
-    color: #004b91;
-    font-size: 18px;
-    margin-bottom: 10px;
-}
-.stButton>button {
-    background-color: #004b91;
-    color: white;
-    border-radius: 10px;
-    border: none;
-}
-.stButton>button:hover {
-    background-color: #ff6600;
-    color: white;
-}
+    margin: 5px 0;
+    width: fit-content;
+    max-width: 80%;
+}}
+.chat-bubble-bot {{
+    background-color: #ffffff;
+    padding: 10px 15px;
+    border-radius: 15px;
+    margin: 5px 0;
+    width: fit-content;
+    max-width: 80%;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}}
 </style>
 """, unsafe_allow_html=True)
 
 # ------------------------------------------------------------
-# SIDEBAR - RECENT HISTORY & SETTINGS
+# SIDEBAR
 # ------------------------------------------------------------
 with st.sidebar:
-    st.title("🕘 Recent History")
+    st.title("🕘 Chat History")
 
-    # Initialize messages store
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    # Display last 5 user prompts
-    recent = [m["content"] for m in st.session_state.messages if m["role"] == "user"]
-    if recent:
-        for r in recent[-5:][::-1]:
-            st.markdown(f"• {r}")
+    # Display saved sessions
+    if st.session_state.chat_sessions:
+        for i, session in enumerate(reversed(st.session_state.chat_sessions)):
+            if st.button(f"💬 Chat {len(st.session_state.chat_sessions)-i} – {session['timestamp']}", use_container_width=True):
+                st.session_state.messages = session["messages"].copy()
+                st.experimental_rerun()
     else:
-        st.caption("No recent questions yet.")
+        st.caption("No saved chats yet.")
 
     st.markdown("---")
-    st.header("⚙️ Controls")
 
-    if st.button("🗑️ Start New Conversation", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
-
-    if st.button("💾 Export Chat", use_container_width=True):
-        if st.session_state.messages:
-            chat_text = "\n\n".join(
-                [f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages]
-            )
-            st.download_button("⬇️ Download Chat", data=chat_text, file_name="CortexChat.txt")
-        else:
-            st.info("No chat yet to export.")
+    # Theme toggle
+    if st.button("🌓 Toggle Dark / Light Mode", use_container_width=True):
+        st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
+        st.experimental_rerun()
 
     st.markdown("---")
-    st.caption("💡 Tip: Ask anything about Sales, Inventory, Shipments, Pricing, or Forecasts.")
+
+    # Download chat
+    if st.session_state.messages:
+        chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
+        st.download_button("⬇️ Download Current Chat", chat_text, "WirelessCortexChat.txt")
+    else:
+        st.caption("💡 Ask something to start a chat.")
+
+    st.markdown("---")
+    if st.button("🗑️ Start New Chat", use_container_width=True):
+        st.session_state.messages = []
+        st.experimental_rerun()
 
 # ------------------------------------------------------------
 # HEADER
 # ------------------------------------------------------------
-st.markdown("""
-<div style='text-align:center; padding:10px 0;'>
+st.markdown(f"""
+<div style='text-align:center; padding:15px 0; background:{header_grad}; color:white; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.2);'>
   <h1 style='margin-bottom:0;'>📶 Wireless Cortex AI</h1>
-  <p style='font-size:16px; color:#555;'>Your Retail Wireless Data & Forecast Assistant</p>
+  <p style='font-size:16px;'>Your Retail Wireless Data & Forecast Assistant</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Quick Info Tiles
 c1, c2 = st.columns(2)
 c1.metric("Data Refreshed", "Nov 7, 2025")
-c2.metric("Active Data Sources", "4 (Snowflake, Dataiku, Tableau, Box)")
+c2.metric("Active Data Sources", "4")
 
 st.markdown("---")
 
 # ------------------------------------------------------------
-# INTRODUCTION
+# STATIC KNOWLEDGE BASE
 # ------------------------------------------------------------
-if "show_intro" not in st.session_state:
-    st.session_state.show_intro = True
+faq_responses = {
+    "sales": "Top-selling devices last month: iPhone 16 (12.3K), Galaxy A15 (10.1K), Moto G Stylus (8.7K). Indirect exceeded forecast by 8%.",
+    "inventory": "SKUs low in stock: iPhone 15 Blue (Denver DC), Galaxy A15 (Dallas DC). Average inventory age: 26 days.",
+    "shipments": "18,420 units shipped this week. Delays: Marceco (2 days), VIP Wireless (1 day).",
+    "pricing": "Average margin: 12.4%. Price drops: Galaxy A15 (-$30), iPhone 15 (-$50) via Best Buy.",
+    "forecast": "Forecast accuracy 96.3% in October. iPhone 16 and A15 expected to grow 10-12% MoM."
+}
 
-if st.session_state.show_intro:
-    with st.chat_message("assistant", avatar="🤖"):
-        st.write("Hello! I’m **Cortex AI**, your Wireless Data Assistant.")
-        st.info("💬 Select a category below or ask your own question to get started.")
-    st.session_state.show_intro = False
-
-# ------------------------------------------------------------
-# CATEGORY DATA
-# ------------------------------------------------------------
-faq_categories = {
-    "🛒 Sales": [
-        "What were the top-selling devices last month?",
-        "Show me sales trends by channel.",
-        "Which SKUs have the highest return rate?",
-        "Compare iPhone vs Samsung sales this quarter.",
-        "What are the sales forecasts for next month?"
-    ],
-    "📦 Inventory": [
-        "Which SKUs are low in stock?",
-        "Show inventory aging by warehouse.",
-        "How many iPhone 16 units are in Denver DC?",
-        "List SKUs with overstock conditions.",
-        "What's the daily inventory update feed?"
-    ],
-    "🚚 Shipments": [
-        "Show delayed shipments by DDP.",
-        "How many units shipped this week?",
-        "Which SKUs are pending shipment confirmation?",
-        "Track shipment status for iPhone 16 Pro Max.",
-        "List DDPs with recurring delays."
-    ],
-    "💲 Pricing": [
-        "Show current device pricing by channel.",
-        "Which SKUs had price drops this week?",
-        "Compare MSRP vs promo prices.",
-        "Show competitor pricing insights.",
-        "What’s the margin for iPhone 16 Pro Max?"
-    ],
-    "📈 Forecast": [
-        "Show activation forecast by SKU.",
-        "Compare actual vs forecast for Q3.",
-        "Which SKUs are forecasted to grow fastest?",
-        "Show forecast accuracy trend by month.",
-        "Update forecast model inputs from Dataiku."
-    ]
+sql_templates = {
+    "sales": "SELECT SKU, SUM(Units) AS Total_Units FROM SALES_DATA WHERE DATE BETWEEN '2025-10-01' AND '2025-10-31' GROUP BY SKU ORDER BY Total_Units DESC;",
+    "inventory": "SELECT SKU, Location, On_Hand, Days_On_Hand FROM INVENTORY_SNAPSHOT WHERE On_Hand < 500;",
+    "shipments": "SELECT DDP, COUNT(SKU) AS Units_Shipped, AVG(Delay_Days) FROM SHIPMENT_LOG WHERE WEEK = '2025-45' GROUP BY DDP;",
+    "pricing": "SELECT SKU, MSRP, Promo_Price, Margin_Pct FROM PRICING_TABLE WHERE Channel IN ('Indirect','Retail');",
+    "forecast": "SELECT SKU, Forecast_Units, Actual_Units, (Forecast_Units-Actual_Units) AS Variance FROM FORECAST_SUMMARY WHERE PERIOD='2025-Q4';"
 }
 
 # ------------------------------------------------------------
-# RANDOM ANSWER DICTIONARY (SIMULATED KNOWLEDGE BASE)
+# DISPLAY CHAT
 # ------------------------------------------------------------
-responses = {
-    "top-selling": "The top-selling devices last month were iPhone 16 (12.3K units), Galaxy A15 (10.1K), and Moto G Stylus (8.7K). Indirect performed 8% above forecast.",
-    "sales trends": "Sales show upward momentum across National Retail (+5%) while Indirect declined slightly (-2%). Web continues consistent growth.",
-    "return rate": "Highest return rates are seen in entry-level models: Galaxy A03 (4.5%) and TCL 40XL (3.8%). Flagship models remain below 1%.",
-    "iphone vs samsung": "iPhone captured 57% of total premium sales vs Samsung’s 34%. Upgrade-driven demand boosted iPhone 16 Pro Max.",
-    "sales forecast": "The sales forecast for next month is projected at 105K activations, with Indirect contributing 48%, National Retail 38%, and Web 14%.",
-    "low in stock": "SKUs low in stock: iPhone 15 Blue 128GB (Denver DC), Galaxy A15 64GB (Dallas DC). Replenishment expected within 3 days.",
-    "inventory aging": "Average inventory age is 26 days. Denver DC and Miami DC show the slowest movement for low-tier Androids.",
-    "iphone 16 units": "There are 248 iPhone 16 units in Denver DC — 80% ready to ship, 20% pending QA.",
-    "overstock": "Overstock SKUs include TCL 40 SE, Moto G Pure, and Galaxy A04. These have >90 days on hand.",
-    "inventory update": "Daily inventory updates are published at 7:00 AM MT via the Dataiku pipeline `inventory_feed_v2`.",
-    "delayed shipments": "Current delays are seen in Marceco DDP (2 days) and VIP Wireless (1 day). Root cause: carrier capacity.",
-    "units shipped": "This week, 18,420 units shipped across all DDPs. Walmart and Best Buy represent 63% of total volume.",
-    "pending shipment": "Pending shipment confirmations: 23 SKUs across Marceco and DCI. Expected resolution in next 12 hours.",
-    "track shipment": "iPhone 16 Pro Max (DDP Marceco) shows 'In Transit' status, expected delivery ETA: Nov 9.",
-    "recurring delays": "Recurring delays observed for DDP: VIP Wireless and Brightstar, primarily due to EDI backlog.",
-    "device pricing": "Current prices: iPhone 16 = $999, Galaxy A15 = $199, Moto G Power = $249. Indirect margin avg 8%.",
-    "price drops": "Price drops this week: Samsung A14 (-$30), TCL 40 SE (-$20), iPhone 15 (-$50) promo via Best Buy.",
-    "msrp": "MSRP vs promo: iPhone 16 ($999 vs $949), Galaxy A15 ($199 vs $179). Web channel leading discounts.",
-    "competitor pricing": "Competitor prices show Verizon promoting Galaxy A15 at $169 and Metro offering TCL 40 SE at $129.",
-    "margin": "Margin for iPhone 16 Pro Max is currently 12.4%, up from 10.8% last quarter due to reduced freight costs.",
-    "activation forecast": "Activation forecast by SKU: iPhone 16 – 32K, A15 – 27K, Moto G Stylus – 20K. Trending +6% MoM.",
-    "actual vs forecast": "Q3 variance: Actuals were 3.2% above forecast overall. Web exceeded by 12%, Indirect lagged 4%.",
-    "forecasted to grow": "SKUs forecasted to grow fastest: Galaxy A16 (+14%), iPhone 16 Pro Max (+11%), Moto G 2025 (+9%).",
-    "accuracy trend": "Forecast accuracy improved to 96.3% in October due to model retraining in Dataiku.",
-    "update forecast": "Forecast inputs successfully updated from Dataiku on Nov 6. Next auto-refresh scheduled for Sunday 6 AM."
-}
+if not st.session_state.messages:
+    st.info("💬 Hi! I’m Cortex AI. Ask me about Sales, Inventory, Shipments, Pricing, or Forecasts.")
 
-# ------------------------------------------------------------
-# DISPLAY CATEGORY ACCORDIONS
-# ------------------------------------------------------------
-st.markdown("### 💬 Choose a Category:")
-for category, questions in faq_categories.items():
-    with st.expander(category, expanded=False):
-        for q in questions:
-            if st.button(q, key=q):
-                st.session_state.messages.append({"role": "user", "avatar": "👤", "content": q})
-                st.rerun()
-
-# ------------------------------------------------------------
-# DISPLAY CHAT HISTORY
-# ------------------------------------------------------------
-for message in st.session_state.messages:
-    with st.chat_message(message["role"], avatar=message["avatar"]):
-        st.markdown(message["content"])
+for msg in st.session_state.messages:
+    bubble_class = "chat-bubble-user" if msg["role"] == "user" else "chat-bubble-bot"
+    st.markdown(f"<div class='{bubble_class}'>{msg['content']}</div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
 # CHAT INPUT
 # ------------------------------------------------------------
-if prompt := st.chat_input("Ask about sales, inventory, shipments, pricing, or forecast..."):
-    st.session_state.messages.append({"role": "user", "avatar": "👤", "content": prompt})
+if prompt := st.chat_input("Ask your question here..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
-    with st.chat_message("user", avatar="👤"):
-        st.markdown(prompt)
+    # Intent detection
+    topic = None
+    for key in faq_responses.keys():
+        if key in prompt.lower():
+            topic = key
+            break
 
-    # Simulate "thinking"
-    with st.chat_message("assistant", avatar="🤖"):
-        with st.spinner("Cortex AI is analyzing your request..."):
-            time.sleep(1)
+    with st.spinner("Cortex AI is analyzing..."):
+        time.sleep(1)
 
-        # Basic keyword detection
-        matched = None
-        for key, value in responses.items():
-            if key in prompt.lower():
-                matched = value
-                break
-        if not matched:
-            matched = "Let me look that up — it seems like a custom query. I’ll summarize once I have more data."
+    # Response
+    if topic:
+        answer = faq_responses[topic]
+    else:
+        answer = "⚠️ LIMITED DATA — WORKING ON GETTING MORE DATA SOURCES IN."
+    st.session_state.messages.append({"role": "bot", "content": answer})
+    st.markdown(f"<div class='chat-bubble-bot'>{answer}</div>", unsafe_allow_html=True)
 
-        # Display the simulated answer
-        st.markdown(matched)
-        st.session_state.messages.append({"role": "assistant", "avatar": "🤖", "content": matched})
+    # --------------------------------------------------------
+    # EXPANDABLE SQL + RESULTS + CHART
+    # --------------------------------------------------------
+    with st.expander("🧾 View SQL Query"):
+        st.code(sql_templates.get(topic, "-- No SQL available for this query."), language="sql")
 
-        # Optional visuals for some categories
-        if "sales" in prompt.lower() or "top-selling" in prompt.lower():
-            st.markdown("#### 📊 Top Selling Devices (Sample)")
+    # Tabs
+    tab1, tab2 = st.tabs(["📋 Results", "📊 Chart"])
+    with tab1:
+        if topic:
             df = pd.DataFrame({
-                "Device": ["iPhone 16", "Galaxy A15", "Moto G Stylus", "TCL 40 XL"],
-                "Units": [320, 270, 210, 150]
+                "SKU": ["iPhone 16", "Galaxy A15", "Moto G Stylus", "TCL 40 SE"],
+                "Units": [12300, 10100, 8700, 7600]
             })
-            fig = px.bar(df, x="Device", y="Units", text="Units", title="Top Selling Devices (Last Month)")
-            fig.update_traces(textposition="outside")
-            st.plotly_chart(fig, use_container_width=True)
+        else:
+            df = pd.DataFrame({"Message": ["No data available."]})
+        st.dataframe(df, use_container_width=True)
 
-        elif "forecast" in prompt.lower():
-            st.markdown("#### 📈 Forecast vs Actual (Sample)")
-            df = pd.DataFrame({
-                "Date": pd.date_range("2025-10-25", periods=7),
-                "Forecast": [300, 310, 320, 315, 330, 340, 335],
-                "Actual": [290, 305, 318, 300, 320, 338, 330]
-            })
-            fig = px.line(df, x="Date", y=["Forecast", "Actual"], markers=True)
+    with tab2:
+        chart_type = st.radio("Select Chart Type", ["Bar", "Line", "Pie"], horizontal=True)
+        if topic:
+            if chart_type == "Bar":
+                fig = px.bar(df, x="SKU", y="Units", text="Units", title="Units by SKU")
+            elif chart_type == "Line":
+                fig = px.line(df, x="SKU", y="Units", markers=True, title="Units by SKU (Line)")
+            else:
+                fig = px.pie(df, names="SKU", values="Units", title="Units Distribution")
             st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("No chart available — limited data.")
+
+    # --------------------------------------------------------
+    # AUTO-SAVE SESSION
+    # --------------------------------------------------------
+    st.session_state.chat_sessions.append({
+        "timestamp": datetime.now().strftime("%b %d, %I:%M %p"),
+        "messages": st.session_state.messages.copy()
+    })
+
+    st.experimental_rerun()
