@@ -261,13 +261,26 @@ for idx,item in enumerate(st.session_state.qa_history):
     t1,t2=st.tabs(["📊 Results","📈 Chart"])
     with t1: st.dataframe(df,use_container_width=True)
     with t2:
-        chart_type=st.selectbox("Chart Type",["Bar","Line","Scatter","Area","Pie"],key=f"chart_{idx}")
-        if chart_type=="Bar": fig=px.bar(df,x="SKU",y=["Sales","Forecast"])
-        elif chart_type=="Line": fig=px.line(df,x="SKU",y=["Sales","Forecast"])
-        elif chart_type=="Scatter": fig=px.scatter(df,x="SKU",y="Sales",size="Forecast")
-        elif chart_type=="Area": fig=px.area(df,x="SKU",y=["Sales","Forecast"])
-        else: fig=px.pie(df,names="SKU",values="Sales")
-        st.plotly_chart(fig,use_container_width=True)
+    # ✅ Skip chart rendering if no data
+    if df.empty:
+        st.warning("⚠️ No chart available — no data found for this query.")
+    else:
+        chart_type = st.selectbox(
+            "Chart Type", ["Bar", "Line", "Scatter", "Area", "Pie"], key=f"chart_{idx}"
+        )
+        if chart_type == "Bar":
+            fig = px.bar(df, x="SKU", y=["Sales", "Forecast"])
+        elif chart_type == "Line":
+            fig = px.line(df, x="SKU", y=["Sales", "Forecast"])
+        elif chart_type == "Scatter":
+            fig = px.scatter(df, x="SKU", y="Sales", size="Forecast")
+        elif chart_type == "Area":
+            fig = px.area(df, x="SKU", y=["Sales", "Forecast"])
+        else:
+            fig = px.pie(df, names="SKU", values="Sales")
+
+        st.plotly_chart(fig, use_container_width=True)
+
 
     c1,c2,_=st.columns([0.1,0.1,0.8])
     with c1:
