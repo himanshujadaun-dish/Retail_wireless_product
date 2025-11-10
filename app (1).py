@@ -263,7 +263,7 @@ for idx,item in enumerate(st.session_state.qa_history):
     with t2:
     # ✅ Skip chart rendering if no data
         if df.empty:
-        st.warning("⚠️ No chart available — no data found for this query.")
+            st.warning("⚠️ No chart available — no data found for this query.")
         else:
             chart_type = st.selectbox(
                 "Chart Type", ["Bar", "Line", "Scatter", "Area", "Pie"], key=f"chart_{idx}"
