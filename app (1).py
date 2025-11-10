@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v5.7 — Full Stable (Chat + Charts + Feedback)
+# Wireless Cortex AI v5.8 — Full Stable (Chat + Charts + Feedback + Auto-Scroll)
 # ------------------------------------------------------------
 import streamlit as st
 import time, random, datetime, copy
@@ -81,8 +81,14 @@ st.markdown(f"""
 <style>
 .stApp {{background-color:{bg};color:{text};}}
 h1,h2,h3,h4,h5,h6{{color:{accent};}}
-.chat-bubble-user{{background-color:{card};color:{text};padding:10px 14px;border-radius:15px;margin:8px 0;max-width:80%;box-shadow:0 2px 6px rgba(0,0,0,.25);}}
-.chat-bubble-ai{{background-color:{ai};color:#E8EEF7;padding:10px 14px;border-radius:15px;margin:8px 0;max-width:80%;box-shadow:0 2px 6px rgba(0,0,0,.15);}}
+.chat-bubble-user{{background-color:{card};color:{text};
+padding:10px 14px;border-radius:15px;margin:8px 0;max-width:80%;
+box-shadow:0 2px 6px rgba(0,0,0,.25);}}
+.chat-bubble-ai{{background-color:{ai};color:#E8EEF7;
+padding:10px 14px;border-radius:15px;margin:8px 0;max-width:80%;
+box-shadow:0 2px 6px rgba(0,0,0,.15);}}
+/* Auto-scroll anchor */
+#bottom_anchor {height: 1px;}
 </style>
 """,unsafe_allow_html=True)
 
@@ -113,9 +119,11 @@ with st.sidebar:
 
     st.markdown("---")
     st.subheader("🔗 Info & Tools")
-    st.markdown("[📘 Open Info Sheet](https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/edit?gid=0#gid=0)",unsafe_allow_html=True)
+    st.markdown("[📘 Open Info Sheet]"
+                "(https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/"
+                "edit?gid=0#gid=0)",unsafe_allow_html=True)
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v5.7 | Full Stable (Chat + Chart + Feedback)**")
+    st.caption("**Wireless Cortex AI v5.8 | Chat + Chart + Feedback + Auto-Scroll**")
 
 # ------------------------------------------------------------
 # 5) HEADER + KPIs
@@ -151,80 +159,54 @@ def inventory_answers(q):
     if "inventory aging" in q: return "⏳ Denver 30d, Dallas 26d, NY 20d."
     if "how many iphone 16" in q: return f"📦 {fmt_int(1200,1800)} units."
     if "overstock" in q: return "⚠️ Moto G Power overstocked in Central."
-    if "daily inventory" in q: return "🕓 Dataiku job INV_2025_09 every 4h."
+    if "daily inventory" in q: return "🕓 Dataiku job INV_2025_09 every 4 h."
     return None
 def shipments_answers(q):
     if "delayed shipments" in q: return "🚚 Brightstar delays in Midwest due to weather."
     if "units shipped" in q: return f"📦 {fmt_int(17000,19000)} units WTD."
     if "pending shipment" in q: return f"⚙️ {fmt_int(180,260)} pending (60% Apple)."
     if "track shipment" in q: return "📍 Dallas TX, ETA 2 days."
-    if "recurring delays" in q: return "⏰ Brightstar, Marceco recurring delays >5x Q3."
+    if "recurring delays" in q: return "⏰ Brightstar and Marceco >5× Q3."
     return None
 def pricing_answers(q):
-    if "device pricing" in q: return "💰 iPhone 16: $1,099 (Web), $1,049 (Indirect)."
+    if "device pricing" in q: return "💰 iPhone 16 $1,099 (Web), $1,049 (Indirect)."
     if "price drops" in q: return "📉 A15 (-$30), Moto G (-$25)."
     if "msrp" in q: return "💵 Avg 9% below MSRP."
-    if "competitor pricing" in q: return "🏷️ Metro is $20 lower on iPhone 15."
+    if "competitor pricing" in q: return "🏷️ Metro $20 lower on iPhone 15."
     if "margin" in q: return f"💸 Margin ≈ {fmt_pct(random.uniform(11,13))}."
     return None
 def forecast_answers(q):
-    if "activation forecast" in q: return f"🔮 iPhone 16: {fmt_int(23000,26000)}, A15: {fmt_int(17500,20000)}."
+    if "activation forecast" in q: return f"🔮 iPhone 16 {fmt_int(23000,26000)}, A15 {fmt_int(17500,20000)}."
     if "compare actual" in q: return f"📊 Accuracy ≈ {fmt_pct(random.uniform(90,92))}."
     if "forecasted to grow" in q: return "🚀 A15 and Moto G Stylus +15%."
     if "forecast accuracy" in q: return "📈 86% → 89% → 91% (Jul–Sep)."
     if "model inputs" in q: return "⚙️ Inputs refreshed 01:15 AM MT."
     return None
-
 def answer_for_question(q):
-    qn = q.strip().lower().rstrip(".!?")
-    ans = (
-        sales_answers(qn)
-        or inventory_answers(qn)
-        or shipments_answers(qn)
-        or pricing_answers(qn)
-        or forecast_answers(qn)
-    )
+    qn=q.strip().lower().rstrip(".!?")
+    ans=(sales_answers(qn) or inventory_answers(qn) or shipments_answers(qn)
+         or pricing_answers(qn) or forecast_answers(qn))
     return ans if ans else "⚠️ Limited Data — working on getting in more data sources"
 
 FAQ={
-    "Sales":[
-        "Show me sales trends by channel.",
-        "What were the top-selling devices last month.",
-        "Compare iPhone vs Samsung sales this quarter.",
-        "Which SKUs have the highest return rate.",
-        "What are the sales forecasts for next month."
-    ],
-    "Inventory":[
-        "Which SKUs are low in stock.",
-        "Show inventory aging by warehouse.",
-        "How many iPhone 16 units are in Denver DC.",
-        "List SKUs with overstock conditions.",
-        "What's the daily inventory update feed."
-    ],
-    "Shipments":[
-        "Show delayed shipments by DDP.",
-        "How many units shipped this week.",
-        "Which SKUs are pending shipment confirmation.",
-        "Track shipment status for iPhone 16 Pro Max.",
-        "List DDPs with recurring delays."
-    ],
-    "Pricing":[
-        "Show current device pricing by channel.",
-        "Which SKUs had price drops this week.",
-        "Compare MSRP vs promo prices.",
-        "Show competitor pricing insights.",
-        "What’s the margin for iPhone 16 Pro Max."
-    ],
-    "Forecast":[
-        "Show activation forecast by SKU.",
-        "Compare actual vs forecast for Q3.",
-        "Which SKUs are forecasted to grow fastest.",
-        "Show forecast accuracy trend by month.",
-        "Update forecast model inputs from Dataiku."
-    ]
+    "Sales":["Show me sales trends by channel.","What were the top-selling devices last month.",
+             "Compare iPhone vs Samsung sales this quarter.","Which SKUs have the highest return rate.",
+             "What are the sales forecasts for next month."],
+    "Inventory":["Which SKUs are low in stock.","Show inventory aging by warehouse.",
+                 "How many iPhone 16 units are in Denver DC.","List SKUs with overstock conditions.",
+                 "What's the daily inventory update feed."],
+    "Shipments":["Show delayed shipments by DDP.","How many units shipped this week.",
+                 "Which SKUs are pending shipment confirmation.","Track shipment status for iPhone 16 Pro Max.",
+                 "List DDPs with recurring delays."],
+    "Pricing":["Show current device pricing by channel.","Which SKUs had price drops this week.",
+               "Compare MSRP vs promo prices.","Show competitor pricing insights.",
+               "What’s the margin for iPhone 16 Pro Max."],
+    "Forecast":["Show activation forecast by SKU.","Compare actual vs forecast for Q3.",
+                "Which SKUs are forecasted to grow fastest.","Show forecast accuracy trend by month.",
+                "Update forecast model inputs from Dataiku."]
 }
 
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit?gid=0#gid=0"
+SHEET_URL="https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit?gid=0#gid=0"
 
 # ------------------------------------------------------------
 # 7) Suggested Questions + Q&A Display
@@ -233,11 +215,12 @@ if not st.session_state.messages and not st.session_state.qa_history:
     st.markdown("### 💬 Choose an option below for suggested questions or ask a question")
     for category, questions in FAQ.items():
         with st.expander(f"📂 {category}"):
-            sel=st.selectbox(f"Select a {category} question:",["-- Choose --"]+questions,key=f"dd_{category}")
+            sel=st.selectbox(f"Select a {category} question:",
+                             ["-- Choose --"]+questions,key=f"dd_{category}")
             if sel!="-- Choose --":
-                normalized_sel = sel.strip().lower().rstrip(".!?")
+                q_norm=sel.strip().lower().rstrip(".!?")
                 st.session_state.messages.append({"role":"user","content":sel})
-                a=answer_for_question(normalized_sel)
+                a=answer_for_question(q_norm)
                 sql=f"SELECT * FROM demo_table WHERE topic='{sel[:60]}';"
                 df=pd.DataFrame({"SKU":["A15","A16","iPhone 16","Moto G"],
                                  "Sales":[random.randint(1000,3000) for _ in range(4)],
@@ -248,17 +231,15 @@ if not st.session_state.messages and not st.session_state.qa_history:
                 safe_rerun()
 
 # ------------------------------------------------------------
-# 8) Render Q&A Blocks
+# 8) Render Q&A Blocks + Feedback + Chart
 # ------------------------------------------------------------
-for idx, item in enumerate(st.session_state.qa_history):
+for idx,item in enumerate(st.session_state.qa_history):
     st.markdown(f"**🧠 Question:** {item['q']}")
     st.info(item['a'])
-
     df=pd.DataFrame(item["df_dict"])
-    tabs = st.tabs(["📊 Results", "📈 Chart"])
-    with tabs[0]:
-        st.dataframe(df, use_container_width=True)
-    with tabs[1]:
+    t1,t2=st.tabs(["📊 Results","📈 Chart"])
+    with t1: st.dataframe(df,use_container_width=True)
+    with t2:
         chart_type=st.selectbox("Chart Type",["Bar","Line","Scatter","Area","Pie"],key=f"chart_{idx}")
         if chart_type=="Bar": fig=px.bar(df,x="SKU",y=["Sales","Forecast"])
         elif chart_type=="Line": fig=px.line(df,x="SKU",y=["Sales","Forecast"])
@@ -267,7 +248,6 @@ for idx, item in enumerate(st.session_state.qa_history):
         else: fig=px.pie(df,names="SKU",values="Sales")
         st.plotly_chart(fig,use_container_width=True)
 
-    # Feedback section
     c1,c2,_=st.columns([0.1,0.1,0.8])
     with c1:
         if st.button("👍",key=f"up_{idx}",disabled=item["fb"]=="up"):
@@ -288,10 +268,13 @@ for idx, item in enumerate(st.session_state.qa_history):
                     [datetime.datetime.now().isoformat(timespec="seconds"),item["q"],item["a"][:120],"down"])
             safe_rerun()
 
+# invisible scroll anchor
+st.markdown("<div id='bottom_anchor'></div>", unsafe_allow_html=True)
+
 # ------------------------------------------------------------
-# 9) Chat Input — Ask new question
+# 9) Chat Input — Ask new question + Auto-Scroll
 # ------------------------------------------------------------
-prompt = st.chat_input("Ask about sales, devices, or logistics…")
+prompt=st.chat_input("Ask about sales, devices, or logistics…")
 if prompt:
     st.session_state.messages.append({"role":"user","content":prompt})
     with st.spinner("🤖 Cortex AI is thinking..."):
@@ -305,3 +288,10 @@ if prompt:
         "df_dict":df.to_dict(orient="list"),
         "ts":datetime.datetime.now().isoformat(timespec="seconds"),"fb":None})
     safe_rerun()
+
+# JS auto-scroll to bottom
+st.markdown("""
+<script>
+window.scrollTo(0, document.body.scrollHeight);
+</script>
+""",unsafe_allow_html=True)
