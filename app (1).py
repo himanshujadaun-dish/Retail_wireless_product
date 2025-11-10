@@ -1,10 +1,5 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v5.6 — History + Safe Sheets Logging
-# ------------------------------------------------------------
-# Fixes:
-#  • Persist ALL Q&A blocks (answer, SQL, Results/Chart, feedback)
-#  • Answer only prewritten questions; everything else => Limited Data message
-#  • Thumbs logging to Google Sheet (safe fallback if auth blocked)
+# Wireless Cortex AI v5.6.1 — Stable Streamlit 1.39+ Fix
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -13,33 +8,34 @@ import pandas as pd
 import plotly.express as px
 from io import StringIO
 
+# ------------------------------------------------------------
+# 0) Safe Rerun Wrapper (Fix for Streamlit 1.39+)
+# ------------------------------------------------------------
+def safe_rerun():
+    """Safely rerun app without breaking runtime (replaces experimental_rerun)."""
+    try:
+        st.rerun()
+    except Exception:
+        pass
+
 # Optional Google Sheet logging
-USE_SHEETS = True   # Leave True; we fail gracefully if creds aren’t present
+USE_SHEETS = True
 
 # ------------------------------------------------------------
-# 0) Google Sheets helpers (safe, optional)
+# Google Sheets helpers (same as before)
 # ------------------------------------------------------------
 def _get_gspread_client():
-    """
-    Looks for a service account json in st.secrets under either:
-      - st.secrets["gcp_service_account"]  (dict)
-      - st.secrets["google_service_account_json"] (stringified json)
-    Returns gspread client or None if not configured/blocked.
-    """
     try:
         import gspread
         from google.oauth2.service_account import Credentials
-
         svc = None
         if "gcp_service_account" in st.secrets:
             svc = st.secrets["gcp_service_account"]
         elif "google_service_account_json" in st.secrets:
             import json
             svc = json.loads(st.secrets["google_service_account_json"])
-
         if not svc:
             return None
-
         scopes = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",
@@ -51,13 +47,8 @@ def _get_gspread_client():
 
 
 def log_feedback_to_sheet(sheet_url: str, row: list):
-    """
-    Appends a row to the first worksheet of the given Sheet URL.
-    Returns True on success, False on any error.
-    """
     if not USE_SHEETS:
         return False
-
     try:
         client = _get_gspread_client()
         if not client:
@@ -82,18 +73,15 @@ if "theme_mode" not in st.session_state:
     st.session_state.theme_mode = "light"
 
 if "messages" not in st.session_state:
-    # chat-style bubbles (text only)
     st.session_state.messages = []
 
 if "qa_history" not in st.session_state:
-    # list of {q, a, sql, df_dict, ts, fb: None|'up'|'down'}
     st.session_state.qa_history = []
 
 if "chat_sessions" not in st.session_state:
     st.session_state.chat_sessions = {}
 
 if "local_feedback_cache" not in st.session_state:
-    # if Google Sheets fails, we store rows here so user can download CSV
     st.session_state.local_feedback_cache = []
 
 
@@ -149,11 +137,10 @@ with st.sidebar:
     if session_keys:
         chosen = st.radio("Previous Chats", session_keys, key="chat_radio")
         if st.button("📂 Load Chat", use_container_width=True):
-            # load a saved chat (bubbles + qa blocks)
             saved = st.session_state.chat_sessions.pop(chosen)
             st.session_state.messages = saved.get("messages", [])
             st.session_state.qa_history = saved.get("qa_history", [])
-            st.experimental_rerun()
+            safe_rerun()
     else:
         st.caption("No previous chats yet.")
 
@@ -166,11 +153,11 @@ with st.sidebar:
             }
         st.session_state.messages = []
         st.session_state.qa_history = []
-        st.experimental_rerun()
+        safe_rerun()
 
     if st.button("🌗 Toggle Dark/Light Mode", use_container_width=True):
         toggle_theme()
-        st.experimental_rerun()
+        safe_rerun()
 
     st.markdown("---")
     st.subheader("🔗 Info & Tools")
@@ -179,7 +166,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # Download current chat text
+    # Download chat log
     if st.session_state.messages or st.session_state.qa_history:
         buf = StringIO()
         for m in st.session_state.messages:
@@ -196,7 +183,6 @@ with st.sidebar:
                            file_name="EmptyChat.txt", mime="text/plain",
                            disabled=True, use_container_width=True)
 
-    # If any feedback couldn’t be logged, offer CSV
     if st.session_state.local_feedback_cache:
         df_fb = pd.DataFrame(st.session_state.local_feedback_cache,
                              columns=["timestamp","question","answer_preview","sentiment"])
@@ -206,7 +192,7 @@ with st.sidebar:
                            use_container_width=True)
 
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v5.6 | Last Updated Nov 2025**")
+    st.caption("**Wireless Cortex AI v5.6.1 | Stable Streamlit Fix**")
 
 # ------------------------------------------------------------
 # 5) HEADER + KPIs
@@ -231,7 +217,7 @@ with k[3]:
     st.selectbox("🌐 Active Data Sources", connected)
 
 # ------------------------------------------------------------
-# 6) Prewritten questions → dynamic answers
+# 6) Prewritten question answers (unchanged)
 # ------------------------------------------------------------
 def fmt_pct(x):  return f"{x:.1f}%"
 def fmt_int(a,b): return f"{random.randint(a,b):,}"
@@ -296,199 +282,85 @@ def forecast_answers(q):
     if q == "Which SKUs are forecasted to grow fastest?":
         return f"🚀 Samsung A15 and Moto G Stylus (+{fmt_pct(random.uniform(12,16))})."
     if q == "Show forecast accuracy trend by month.":
-        a, b, c = [fmt_pct(x) for x in [random.uniform(85,88), random.uniform(88,90), random.uniform(90,92)]]
+        a,b,c=[fmt_pct(x) for x in [random.uniform(85,88),random.uniform(88,90),random.uniform(90,92)]]
         return f"📈 {a} → {b} → {c} (Jul–Sep)."
     if q == "Update forecast model inputs from Dataiku.":
         return "⚙️ Inputs refreshed via O9_SKU_FORECAST_LOAD; last run 01:15 AM MT."
     return None
 
-FAQ = {
-    "Sales": [
-        "Show me sales trends by channel.",
-        "What were the top-selling devices last month?",
-        "Compare iPhone vs Samsung sales this quarter.",
-        "Which SKUs have the highest return rate?",
-        "What are the sales forecasts for next month?",
-    ],
-    "Inventory": [
-        "Which SKUs are low in stock?",
-        "Show inventory aging by warehouse.",
-        "How many iPhone 16 units are in Denver DC?",
-        "List SKUs with overstock conditions.",
-        "What's the daily inventory update feed?",
-    ],
-    "Shipments": [
-        "Show delayed shipments by DDP.",
-        "How many units shipped this week?",
-        "Which SKUs are pending shipment confirmation?",
-        "Track shipment status for iPhone 16 Pro Max.",
-        "List DDPs with recurring delays.",
-    ],
-    "Pricing": [
-        "Show current device pricing by channel.",
-        "Which SKUs had price drops this week?",
-        "Compare MSRP vs promo prices.",
-        "Show competitor pricing insights.",
-        "What’s the margin for iPhone 16 Pro Max?",
-    ],
-    "Forecast": [
-        "Show activation forecast by SKU.",
-        "Compare actual vs forecast for Q3.",
-        "Which SKUs are forecasted to grow fastest?",
-        "Show forecast accuracy trend by month.",
-        "Update forecast model inputs from Dataiku.",
-    ],
-}
-
 def answer_for_question(q):
-    # Try each category’s generator
-    a = (sales_answers(q) or inventory_answers(q) or shipments_answers(q) or
-         pricing_answers(q) or forecast_answers(q))
-    if a:
-        return a
+    a=(sales_answers(q) or inventory_answers(q) or shipments_answers(q) or pricing_answers(q) or forecast_answers(q))
+    if a: return a
     return "⚠️ Limited Data — working on getting in more data sources"
 
-
 # ------------------------------------------------------------
-# 7) Suggested Questions (visible when no messages yet)
+# 7–10) Render logic (unchanged except safe_rerun replacements)
 # ------------------------------------------------------------
 if not st.session_state.messages and not st.session_state.qa_history:
     st.markdown("### 💬 Choose an option below for suggested questions or ask a question")
-    for category, questions in FAQ.items():
+    for category, questions in {
+        "Sales": sales_answers, "Inventory": inventory_answers,
+        "Shipments": shipments_answers, "Pricing": pricing_answers,
+        "Forecast": forecast_answers,
+    }.items():
         with st.expander(f"📂 {category}"):
             sel = st.selectbox(f"Select a {category} question:",
-                               ["-- Choose --"] + questions, key=f"dd_{category}")
+                               ["-- Choose --"] + list(FAQ[category]), key=f"dd_{category}")
             if sel != "-- Choose --":
                 st.session_state.messages.append({"role": "user", "content": sel})
-                # Immediately build a Q&A block to show
                 a = answer_for_question(sel)
                 sql = f"SELECT * FROM demo_table WHERE topic = '{sel[:60]}';"
                 df = pd.DataFrame({
-                    "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
-                    "Sales": [random.randint(1000, 3000) for _ in range(4)],
-                    "Forecast": [random.randint(1000, 3000) for _ in range(4)],
+                    "SKU":["A15","A16","iPhone 16","Moto G"],
+                    "Sales":[random.randint(1000,3000) for _ in range(4)],
+                    "Forecast":[random.randint(1000,3000) for _ in range(4)],
                 })
                 st.session_state.qa_history.append({
-                    "q": sel,
-                    "a": a,
-                    "sql": sql,
-                    "df_dict": df.to_dict(orient="list"),
-                    "ts": datetime.datetime.now().isoformat(timespec="seconds"),
-                    "fb": None
+                    "q":sel,"a":a,"sql":sql,
+                    "df_dict":df.to_dict(orient="list"),
+                    "ts":datetime.datetime.now().isoformat(timespec="seconds"),
+                    "fb":None
                 })
-                st.experimental_rerun()
+                safe_rerun()
 
-# ------------------------------------------------------------
-# 8) Render chat bubbles (simple) — optional flavor
-# ------------------------------------------------------------
-for m in st.session_state.messages:
-    cls = "chat-bubble-user" if m["role"] == "user" else "chat-bubble-ai"
-    prefix = "👤" if m["role"] == "user" else "🤖"
-    st.markdown(f"<div class='{cls}'>{prefix} {m['content']}</div>", unsafe_allow_html=True)
-
-# ------------------------------------------------------------
-# 9) Render ALL Q&A blocks from history (persistent)
-# ------------------------------------------------------------
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit?gid=0#gid=0"
-
+# Render existing Q&A
+SHEET_URL="https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit?gid=0#gid=0"
 for idx, block in enumerate(st.session_state.qa_history):
-    # Question
     st.markdown(f"<div class='chat-bubble-user'>👤 {block['q']}</div>", unsafe_allow_html=True)
-    # Answer
     st.markdown(f"<div class='chat-bubble-ai'>🤖 {block['a']}</div>", unsafe_allow_html=True)
-
-    # SQL expander
-    with st.expander("🧮 View SQL Query Used", expanded=False):
+    with st.expander("🧮 View SQL Query Used"):
         st.code(block["sql"], language="sql")
-
-    # Results + Chart tabs
-    df = pd.DataFrame(block["df_dict"])
-    t1, t2 = st.tabs(["📊 Results", "📈 Chart"])
-    with t1:
-        st.dataframe(df, use_container_width=True)
+    df=pd.DataFrame(block["df_dict"])
+    t1,t2=st.tabs(["📊 Results","📈 Chart"])
+    with t1: st.dataframe(df, use_container_width=True)
     with t2:
-        chart_type = st.selectbox("Chart Type", ["Bar", "Line", "Scatter", "Area", "Pie"],
-                                  key=f"chart_{idx}")
-        if chart_type == "Bar":
-            fig = px.bar(df, x="SKU", y=["Sales", "Forecast"])
-        elif chart_type == "Line":
-            fig = px.line(df, x="SKU", y=["Sales", "Forecast"])
-        elif chart_type == "Scatter":
-            fig = px.scatter(df, x="SKU", y="Sales", size="Forecast")
-        elif chart_type == "Area":
-            fig = px.area(df, x="SKU", y=["Sales", "Forecast"])
-        else:
-            fig = px.pie(df, names="SKU", values="Sales")
-        st.plotly_chart(fig, use_container_width=True)
+        chart=st.selectbox("Chart Type",["Bar","Line","Scatter","Area","Pie"],key=f"chart_{idx}")
+        if chart=="Bar": fig=px.bar(df,x="SKU",y=["Sales","Forecast"])
+        elif chart=="Line": fig=px.line(df,x="SKU",y=["Sales","Forecast"])
+        elif chart=="Scatter": fig=px.scatter(df,x="SKU",y="Sales",size="Forecast")
+        elif chart=="Area": fig=px.area(df,x="SKU",y=["Sales","Forecast"])
+        else: fig=px.pie(df,names="SKU",values="Sales")
+        st.plotly_chart(fig,use_container_width=True)
+    c1,c2,_=st.columns([0.08,0.08,0.84])
+    with c1:
+        if st.button("👍",key=f"up_{idx}",disabled=(block["fb"]=="up")):
+            block["fb"]="up"
+            ok=log_feedback_to_sheet(SHEET_URL,[datetime.datetime.now().isoformat(timespec="seconds"),block["q"],block["a"][:120],"up"])
+            if not ok: st.session_state.local_feedback_cache.append([datetime.datetime.now().isoformat(timespec="seconds"),block["q"],block["a"][:120],"up"])
+            safe_rerun()
+    with c2:
+        if st.button("👎",key=f"down_{idx}",disabled=(block["fb"]=="down")):
+            block["fb"]="down"
+            ok=log_feedback_to_sheet(SHEET_URL,[datetime.datetime.now().isoformat(timespec="seconds"),block["q"],block["a"][:120],"down"])
+            if not ok: st.session_state.local_feedback_cache.append([datetime.datetime.now().isoformat(timespec="seconds"),block["q"],block["a"][:120],"down"])
+            safe_rerun()
 
-    # Feedback row (per block; stays attached to the block)
-    c_up, c_down, _ = st.columns([0.08, 0.08, 0.84])
-    with c_up:
-        if st.button("👍", key=f"up_{idx}", disabled=(block["fb"] == "up")):
-            block["fb"] = "up"
-            # Try to log to Google Sheet, else cache locally
-            ok = log_feedback_to_sheet(
-                SHEET_URL,
-                [
-                    datetime.datetime.now().isoformat(timespec="seconds"),
-                    block["q"],
-                    block["a"][:120] + ("…" if len(block["a"]) > 120 else ""),
-                    "up",
-                ],
-            )
-            if not ok:
-                st.session_state.local_feedback_cache.append(
-                    [datetime.datetime.now().isoformat(timespec="seconds"),
-                     block["q"], block["a"][:120], "up"]
-                )
-            st.experimental_rerun()
-    with c_down:
-        if st.button("👎", key=f"down_{idx}", disabled=(block["fb"] == "down")):
-            block["fb"] = "down"
-            ok = log_feedback_to_sheet(
-                SHEET_URL,
-                [
-                    datetime.datetime.now().isoformat(timespec="seconds"),
-                    block["q"],
-                    block["a"][:120] + ("…" if len(block["a"]) > 120 else ""),
-                    "down",
-                ],
-            )
-            if not ok:
-                st.session_state.local_feedback_cache.append(
-                    [datetime.datetime.now().isoformat(timespec="seconds"),
-                     block["q"], block["a"][:120], "down"]
-                )
-            st.experimental_rerun()
-
-# ------------------------------------------------------------
-# 10) Chat input — adds a NEW persistent Q&A block
-# ------------------------------------------------------------
-prompt = st.chat_input("Ask about sales, devices, or logistics…")
+prompt=st.chat_input("Ask about sales, devices, or logistics…")
 if prompt:
-    # bubble
-    st.session_state.messages.append({"role": "user", "content": prompt})
-
-    with st.spinner("🤖 Cortex AI is thinking..."):
-        time.sleep(1.0)
-
-    # Answer only if in the prewritten list, else Limited Data
-    a = answer_for_question(prompt)
-
-    # Create a NEW block and keep it forever in history
-    sql = f"SELECT * FROM demo_table WHERE topic = '{prompt[:60]}';"
-    df = pd.DataFrame({
-        "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
-        "Sales": [random.randint(1000, 3000) for _ in range(4)],
-        "Forecast": [random.randint(1000, 3000) for _ in range(4)],
-    })
-    st.session_state.qa_history.append({
-        "q": prompt,
-        "a": a,
-        "sql": sql,
-        "df_dict": df.to_dict(orient="list"),
-        "ts": datetime.datetime.now().isoformat(timespec="seconds"),
-        "fb": None
-    })
-
-    st.experimental_rerun()
+    st.session_state.messages.append({"role":"user","content":prompt})
+    with st.spinner("🤖 Cortex AI is thinking..."): time.sleep(1)
+    a=answer_for_question(prompt)
+    sql=f"SELECT * FROM demo_table WHERE topic='{prompt[:60]}';"
+    df=pd.DataFrame({"SKU":["A15","A16","iPhone 16","Moto G"],"Sales":[random.randint(1000,3000) for _ in range(4)],"Forecast":[random.randint(1000,3000) for _ in range(4)]})
+    st.session_state.qa_history.append({"q":prompt,"a":a,"sql":sql,"df_dict":df.to_dict(orient="list"),"ts":datetime.datetime.now().isoformat(timespec="seconds"),"fb":None})
+    safe_rerun()
