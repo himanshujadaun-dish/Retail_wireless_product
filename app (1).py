@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v5.6.4 — Stable (Dropdown + Display Fix)
+# Wireless Cortex AI v5.7 — Full Stable (Chat + Charts + Feedback)
 # ------------------------------------------------------------
 import streamlit as st
 import time, random, datetime, copy
@@ -17,7 +17,7 @@ def safe_rerun():
         pass
 
 # ------------------------------------------------------------
-# Google Sheets Logging (unchanged)
+# Google Sheets Logging
 # ------------------------------------------------------------
 USE_SHEETS = True
 def _get_gspread_client():
@@ -115,7 +115,7 @@ with st.sidebar:
     st.subheader("🔗 Info & Tools")
     st.markdown("[📘 Open Info Sheet](https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/edit?gid=0#gid=0)",unsafe_allow_html=True)
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v5.6.4 | Stable (Dropdown Display Fix)**")
+    st.caption("**Wireless Cortex AI v5.7 | Full Stable (Chat + Chart + Feedback)**")
 
 # ------------------------------------------------------------
 # 5) HEADER + KPIs
@@ -224,8 +224,10 @@ FAQ={
     ]
 }
 
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit?gid=0#gid=0"
+
 # ------------------------------------------------------------
-# 7) Suggested Questions + Display FIX
+# 7) Suggested Questions + Q&A Display
 # ------------------------------------------------------------
 if not st.session_state.messages and not st.session_state.qa_history:
     st.markdown("### 💬 Choose an option below for suggested questions or ask a question")
@@ -244,11 +246,62 @@ if not st.session_state.messages and not st.session_state.qa_history:
                     "df_dict":df.to_dict(orient="list"),
                     "ts":datetime.datetime.now().isoformat(timespec="seconds"),"fb":None})
                 safe_rerun()
-else:
-    # ✅ SHOW Q&A RESULTS
-    st.markdown("### 💡 Q&A Results")
-    for item in reversed(st.session_state.qa_history[-3:]):  # show last 3
-        st.markdown(f"**🧠 Question:** {item['q']}")
-        st.info(item['a'])
-        df = pd.DataFrame(item['df_dict'])
+
+# ------------------------------------------------------------
+# 8) Render Q&A Blocks
+# ------------------------------------------------------------
+for idx, item in enumerate(st.session_state.qa_history):
+    st.markdown(f"**🧠 Question:** {item['q']}")
+    st.info(item['a'])
+
+    df=pd.DataFrame(item["df_dict"])
+    tabs = st.tabs(["📊 Results", "📈 Chart"])
+    with tabs[0]:
         st.dataframe(df, use_container_width=True)
+    with tabs[1]:
+        chart_type=st.selectbox("Chart Type",["Bar","Line","Scatter","Area","Pie"],key=f"chart_{idx}")
+        if chart_type=="Bar": fig=px.bar(df,x="SKU",y=["Sales","Forecast"])
+        elif chart_type=="Line": fig=px.line(df,x="SKU",y=["Sales","Forecast"])
+        elif chart_type=="Scatter": fig=px.scatter(df,x="SKU",y="Sales",size="Forecast")
+        elif chart_type=="Area": fig=px.area(df,x="SKU",y=["Sales","Forecast"])
+        else: fig=px.pie(df,names="SKU",values="Sales")
+        st.plotly_chart(fig,use_container_width=True)
+
+    # Feedback section
+    c1,c2,_=st.columns([0.1,0.1,0.8])
+    with c1:
+        if st.button("👍",key=f"up_{idx}",disabled=item["fb"]=="up"):
+            item["fb"]="up"
+            ok=log_feedback_to_sheet(SHEET_URL,
+                [datetime.datetime.now().isoformat(timespec="seconds"),item["q"],item["a"][:120],"up"])
+            if not ok:
+                st.session_state.local_feedback_cache.append(
+                    [datetime.datetime.now().isoformat(timespec="seconds"),item["q"],item["a"][:120],"up"])
+            safe_rerun()
+    with c2:
+        if st.button("👎",key=f"down_{idx}",disabled=item["fb"]=="down"):
+            item["fb"]="down"
+            ok=log_feedback_to_sheet(SHEET_URL,
+                [datetime.datetime.now().isoformat(timespec="seconds"),item["q"],item["a"][:120],"down"])
+            if not ok:
+                st.session_state.local_feedback_cache.append(
+                    [datetime.datetime.now().isoformat(timespec="seconds"),item["q"],item["a"][:120],"down"])
+            safe_rerun()
+
+# ------------------------------------------------------------
+# 9) Chat Input — Ask new question
+# ------------------------------------------------------------
+prompt = st.chat_input("Ask about sales, devices, or logistics…")
+if prompt:
+    st.session_state.messages.append({"role":"user","content":prompt})
+    with st.spinner("🤖 Cortex AI is thinking..."):
+        time.sleep(1.0)
+    a=answer_for_question(prompt)
+    sql=f"SELECT * FROM demo_table WHERE topic='{prompt[:60]}';"
+    df=pd.DataFrame({"SKU":["A15","A16","iPhone 16","Moto G"],
+                     "Sales":[random.randint(1000,3000) for _ in range(4)],
+                     "Forecast":[random.randint(1000,3000) for _ in range(4)]})
+    st.session_state.qa_history.append({"q":prompt,"a":a,"sql":sql,
+        "df_dict":df.to_dict(orient="list"),
+        "ts":datetime.datetime.now().isoformat(timespec="seconds"),"fb":None})
+    safe_rerun()
