@@ -1,8 +1,10 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v5.2 — Stable Edition (No UI Change)
+# Wireless Cortex AI v5.3 — Stable + Elegant Dark Mode Edition
+# ------------------------------------------------------------
 # Fixes:
-# 1. 🧹 "Start New Chat" error
-# 2. 🌗 Dark/Light mode toggle crash
+#  ✅ Start New Chat (no crash)
+#  ✅ Dark/Light Mode toggle fully functional
+#  ✅ Elegant Dark Mode UI polish
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -17,7 +19,7 @@ from io import StringIO
 st.set_page_config(page_title="Wireless Cortex AI", page_icon="📶", layout="wide")
 
 # ------------------------------------------------------------
-# 2. SAFE SESSION STATE INIT
+# 2. SESSION STATE INIT
 # ------------------------------------------------------------
 if "theme_mode" not in st.session_state:
     st.session_state.theme_mode = "light"
@@ -29,47 +31,77 @@ if "feedback_log" not in st.session_state:
     st.session_state.feedback_log = []
 
 # ------------------------------------------------------------
-# 3. THEME HANDLING (safe rerun toggle)
+# 3. THEME LOGIC
 # ------------------------------------------------------------
 def toggle_theme():
-    """Safely toggle dark/light mode"""
     st.session_state.theme_mode = (
         "dark" if st.session_state.theme_mode == "light" else "light"
     )
 
 theme = st.session_state.theme_mode
-theme_bg = "#0e1117" if theme == "dark" else "#f5f7fb"
-theme_text = "#fafafa" if theme == "dark" else "#000000"
-theme_card = "#1c1c1c" if theme == "dark" else "#ffffff"
 
+# --- Color Palette ---
+if theme == "dark":
+    bg_color = "#0B1221"
+    text_color = "#E0E6ED"
+    card_color = "#111C33"
+    accent_color = "#3C9DF3"
+    chat_ai_color = "#1C2B47"
+else:
+    bg_color = "#F5F7FB"
+    text_color = "#000000"
+    card_color = "#FFFFFF"
+    accent_color = "#007BFF"
+    chat_ai_color = "#E6F2FF"
+
+# --- CSS Styling ---
 st.markdown(
     f"""
     <style>
     .stApp {{
-        background-color: {theme_bg};
-        color: {theme_text};
+        background-color: {bg_color};
+        color: {text_color};
+        transition: background-color 0.5s ease, color 0.5s ease;
+    }}
+    h1, h2, h3, h4, h5, h6 {{
+        color: {accent_color};
     }}
     .chat-bubble-user {{
-        background-color: {theme_card};
-        color: {theme_text};
+        background-color: {card_color};
+        color: {text_color};
         padding: 10px 14px;
         border-radius: 15px;
         margin: 8px 0;
         max-width: 80%;
-        box-shadow: 0 0 4px rgba(0,0,0,0.2);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
     }}
     .chat-bubble-ai {{
-        background-color: #e6f2ff;
-        color: black;
+        background-color: {chat_ai_color};
+        color: #E8EEF7;
         padding: 10px 14px;
         border-radius: 15px;
         margin: 8px 0;
         max-width: 80%;
-        box-shadow: 0 0 4px rgba(0,0,0,0.1);
-        animation: fadeIn 0.4s ease-in;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        animation: fadeIn 0.3s ease-in;
+    }}
+    .stMetric {{
+        background: linear-gradient(145deg, {card_color}, {chat_ai_color});
+        border-radius: 15px;
+        padding: 10px;
+        color: {text_color};
+        box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    }}
+    .stSelectbox, .stExpander, .stButton > button {{
+        transition: all 0.2s ease-in-out;
+    }}
+    .stButton > button:hover {{
+        background-color: {accent_color};
+        color: white;
+        transform: scale(1.03);
     }}
     @keyframes fadeIn {{
-        from {{opacity: 0; transform: translateY(5px);}}
+        from {{opacity: 0; transform: translateY(6px);}}
         to {{opacity: 1; transform: translateY(0);}}
     }}
     </style>
@@ -78,7 +110,7 @@ st.markdown(
 )
 
 # ------------------------------------------------------------
-# 4. SIDEBAR (fixed Start New Chat + Toggle)
+# 4. SIDEBAR (no UI change, only logic fix)
 # ------------------------------------------------------------
 with st.sidebar:
     st.title("⚙️ Cortex Controls")
@@ -93,7 +125,6 @@ with st.sidebar:
     else:
         st.caption("No previous chats yet.")
 
-    # ✅ FIX: Start New Chat is safe
     if st.button("🗑️ Start New Chat", use_container_width=True):
         if st.session_state.messages:
             name = f"Chat {len(st.session_state.chat_sessions)+1}"
@@ -101,7 +132,6 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-    # ✅ FIX: Toggle uses callback safely
     st.button("🌗 Toggle Dark/Light Mode", on_click=toggle_theme, use_container_width=True)
 
     st.markdown("---")
@@ -129,19 +159,19 @@ with st.sidebar:
             data="No chat available yet.",
             file_name="EmptyChat.txt",
             mime="text/plain",
-            use_container_width=True,
             disabled=True,
+            use_container_width=True,
         )
 
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v5.2 | Last Updated Nov 2025**")
+    st.caption("**Wireless Cortex AI v5.3 | Last Updated Nov 2025**")
 
 # ------------------------------------------------------------
 # 5. HEADER + KPI CARDS
 # ------------------------------------------------------------
 st.markdown(
-    """
-    <h1 style='text-align:center;color:#007bff;'>📶 Wireless Cortex AI</h1>
+    f"""
+    <h1 style='text-align:center;color:{accent_color};'>📶 Wireless Cortex AI</h1>
     <p style='text-align:center;font-size:18px;color:gray;'>Your Retail Intelligence Companion</p>
     """,
     unsafe_allow_html=True,
@@ -159,7 +189,7 @@ with cols[3]:
     st.selectbox("🌐 Active Data Sources", connected)
 
 # ------------------------------------------------------------
-# 6. SUGGESTED QUESTION DROPDOWNS
+# 6. SUGGESTED QUESTIONS
 # ------------------------------------------------------------
 faq = {
     "Sales": [
@@ -240,7 +270,7 @@ prompt = st.chat_input("Ask about sales, devices, or logistics…")
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.spinner("🤖 Cortex AI is thinking..."):
-        time.sleep(1.5)
+        time.sleep(1.2)
 
     lower = prompt.lower()
     found = next((answers[k] for k in answers if k in lower), None)
@@ -275,7 +305,6 @@ if prompt:
             fig = px.pie(df, names="SKU", values="Sales")
         st.plotly_chart(fig, use_container_width=True)
 
-    # Feedback buttons
     fb = st.columns([0.1, 0.1, 0.8])
     with fb[0]:
         if st.button("👍", key=f"up_{len(st.session_state.messages)}"):
