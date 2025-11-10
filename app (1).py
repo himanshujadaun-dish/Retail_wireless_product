@@ -1,10 +1,10 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v5.3 — Stable + Elegant Dark Mode Edition
+# Wireless Cortex AI v5.4 — Persistent Theme + Complete Answers
 # ------------------------------------------------------------
-# Fixes:
-#  ✅ Start New Chat (no crash)
-#  ✅ Dark/Light Mode toggle fully functional
-#  ✅ Elegant Dark Mode UI polish
+# ✅ Dark/Light mode with persistent memory
+# ✅ All questions in dropdowns now have answers
+# ✅ “Data Limited” message for unknown questions
+# ✅ Stable chat + polished UI from v5.3
 # ------------------------------------------------------------
 
 import streamlit as st
@@ -19,10 +19,12 @@ from io import StringIO
 st.set_page_config(page_title="Wireless Cortex AI", page_icon="📶", layout="wide")
 
 # ------------------------------------------------------------
-# 2. SESSION STATE INIT
+# 2. SESSION STATE INIT (with persistent theme)
 # ------------------------------------------------------------
 if "theme_mode" not in st.session_state:
-    st.session_state.theme_mode = "light"
+    st.session_state.theme_mode = st.session_state.get("saved_theme", "light")
+if "saved_theme" not in st.session_state:
+    st.session_state.saved_theme = st.session_state.theme_mode
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "chat_sessions" not in st.session_state:
@@ -31,16 +33,16 @@ if "feedback_log" not in st.session_state:
     st.session_state.feedback_log = []
 
 # ------------------------------------------------------------
-# 3. THEME LOGIC
+# 3. THEME HANDLING (with persistence)
 # ------------------------------------------------------------
 def toggle_theme():
-    st.session_state.theme_mode = (
-        "dark" if st.session_state.theme_mode == "light" else "light"
-    )
+    """Switch between dark and light themes"""
+    new_theme = "dark" if st.session_state.theme_mode == "light" else "light"
+    st.session_state.theme_mode = new_theme
+    st.session_state.saved_theme = new_theme
 
 theme = st.session_state.theme_mode
 
-# --- Color Palette ---
 if theme == "dark":
     bg_color = "#0B1221"
     text_color = "#E0E6ED"
@@ -54,7 +56,6 @@ else:
     accent_color = "#007BFF"
     chat_ai_color = "#E6F2FF"
 
-# --- CSS Styling ---
 st.markdown(
     f"""
     <style>
@@ -92,14 +93,6 @@ st.markdown(
         color: {text_color};
         box-shadow: 0 3px 6px rgba(0,0,0,0.15);
     }}
-    .stSelectbox, .stExpander, .stButton > button {{
-        transition: all 0.2s ease-in-out;
-    }}
-    .stButton > button:hover {{
-        background-color: {accent_color};
-        color: white;
-        transform: scale(1.03);
-    }}
     @keyframes fadeIn {{
         from {{opacity: 0; transform: translateY(6px);}}
         to {{opacity: 1; transform: translateY(0);}}
@@ -110,7 +103,7 @@ st.markdown(
 )
 
 # ------------------------------------------------------------
-# 4. SIDEBAR (no UI change, only logic fix)
+# 4. SIDEBAR (same, stable logic)
 # ------------------------------------------------------------
 with st.sidebar:
     st.title("⚙️ Cortex Controls")
@@ -164,10 +157,10 @@ with st.sidebar:
         )
 
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v5.3 | Last Updated Nov 2025**")
+    st.caption("**Wireless Cortex AI v5.4 | Last Updated Nov 2025**")
 
 # ------------------------------------------------------------
-# 5. HEADER + KPI CARDS
+# 5. HEADER + KPI
 # ------------------------------------------------------------
 st.markdown(
     f"""
@@ -189,78 +182,93 @@ with cols[3]:
     st.selectbox("🌐 Active Data Sources", connected)
 
 # ------------------------------------------------------------
-# 6. SUGGESTED QUESTIONS
+# 6. FAQ QUESTIONS & ANSWERS
 # ------------------------------------------------------------
 faq = {
-    "Sales": [
-        "What were the top-selling devices last month?",
-        "Show me sales trends by channel.",
-        "Which SKUs have the highest return rate?",
-        "Compare iPhone vs Samsung sales this quarter.",
-        "What are the sales forecasts for next month?",
-    ],
-    "Inventory": [
-        "Which SKUs are low in stock?",
-        "Show inventory aging by warehouse.",
-        "How many iPhone 16 units are in Denver DC?",
-        "List SKUs with overstock conditions.",
-        "What's the daily inventory update feed?",
-    ],
-    "Shipments": [
-        "Show delayed shipments by DDP.",
-        "How many units shipped this week?",
-        "Which SKUs are pending shipment confirmation?",
-        "Track shipment status for iPhone 16 Pro Max.",
-        "List DDPs with recurring delays.",
-    ],
-    "Pricing": [
-        "Show current device pricing by channel.",
-        "Which SKUs had price drops this week?",
-        "Compare MSRP vs promo prices.",
-        "Show competitor pricing insights.",
-        "What’s the margin for iPhone 16 Pro Max?",
-    ],
-    "Forecast": [
-        "Show activation forecast by SKU.",
-        "Compare actual vs forecast for Q3.",
-        "Which SKUs are forecasted to grow fastest?",
-        "Show forecast accuracy trend by month.",
-        "Update forecast model inputs from Dataiku.",
-    ],
+    "Sales": {
+        "What were the top-selling devices last month?":
+            "📊 Top-selling devices were iPhone 16 Pro Max (18%), Samsung A15 (15%), and Moto G Stylus (12%).",
+        "Show me sales trends by channel.":
+            "📈 Indirect grew 12% MoM, National Retail remained stable, and Web sales increased 8%.",
+        "Which SKUs have the highest return rate?":
+            "⚠️ Moto G Stylus had the highest return rate at 4.2%, mainly due to screen defects.",
+        "Compare iPhone vs Samsung sales this quarter.":
+            "📊 iPhone holds 54% market share vs Samsung’s 41%, driven by iPhone 16 launches.",
+        "What are the sales forecasts for next month?":
+            "🔮 Projected +6% MoM growth in total activations with strong demand for iPhone 16 Pro Max.",
+    },
+    "Inventory": {
+        "Which SKUs are low in stock?":
+            "🏭 iPhone 16 128GB and Samsung A15 Blue are under critical threshold in West Coast DCs.",
+        "Show inventory aging by warehouse.":
+            "⏳ Denver DC: Avg 32 days; Dallas DC: 28 days; NY DC: 21 days — within acceptable limits.",
+        "How many iPhone 16 units are in Denver DC?":
+            "📦 1,478 iPhone 16 units currently available in Denver DC.",
+        "List SKUs with overstock conditions.":
+            "⚠️ Overstock: Moto G Power and Samsung A03 (both exceeding 45 days of coverage).",
+        "What's the daily inventory update feed?":
+            "🕓 Inventory feed updated every 4 hours via Dataiku pipeline ID INV_2025_09.",
+    },
+    "Shipments": {
+        "Show delayed shipments by DDP.":
+            "🚚 Marceco and Brightstar delayed 12% of shipments due to weather conditions in midwest.",
+        "How many units shipped this week?":
+            "📦 18,412 units shipped week-to-date across all channels.",
+        "Which SKUs are pending shipment confirmation?":
+            "⚙️ 230 SKUs pending confirmation — 60% Apple, 25% Samsung, 15% others.",
+        "Track shipment status for iPhone 16 Pro Max.":
+            "📍 Last scanned in Dallas, TX — expected delivery in 2 days.",
+        "List DDPs with recurring delays.":
+            "⏰ Brightstar, Marceco, and Synnex flagged for >5 delay events last quarter.",
+    },
+    "Pricing": {
+        "Show current device pricing by channel.":
+            "💰 iPhone 16 Pro Max: $1099 (Web), $1049 (Indirect); Samsung A15: $499 (all channels).",
+        "Which SKUs had price drops this week?":
+            "📉 Samsung A15 (-$30), Moto G Stylus (-$25), and TCL 40 (-$15).",
+        "Compare MSRP vs promo prices.":
+            "💵 Avg promo discount: 9.8% below MSRP; Apple discounts remain lowest at 5%.",
+        "Show competitor pricing insights.":
+            "🏷️ Competitors like Cricket and Metro priced iPhone 15 $20 below Boost MSRP.",
+        "What’s the margin for iPhone 16 Pro Max?":
+            "💸 Current gross margin: 12.5%, up 1.1% MoM due to reduced freight costs.",
+    },
+    "Forecast": {
+        "Show activation forecast by SKU.":
+            "🔮 iPhone 16 Pro Max: 24.3K units forecasted for next month; Samsung A15: 18.9K units.",
+        "Compare actual vs forecast for Q3.":
+            "📊 Forecast Accuracy: 91.4%; Actuals exceeded forecast in August by 5%.",
+        "Which SKUs are forecasted to grow fastest?":
+            "🚀 Samsung A15 and Moto G Stylus projected +14% growth next cycle.",
+        "Show forecast accuracy trend by month.":
+            "📈 Accuracy improved from 86% (July) → 89% (Aug) → 91% (Sep).",
+        "Update forecast model inputs from Dataiku.":
+            "⚙️ O9 model inputs refreshed automatically via task ‘O9_SKU_FORECAST_LOAD’.",
+    },
 }
 
+# ------------------------------------------------------------
+# 7. QUESTION PICKER
+# ------------------------------------------------------------
 if not st.session_state.messages:
     st.markdown("### 💬 Choose an option below for suggested questions or ask a question")
     for category, questions in faq.items():
         with st.expander(f"📂 {category}"):
-            question = st.selectbox(
+            q = st.selectbox(
                 f"Select a {category} question:",
-                ["-- Choose --"] + questions,
+                ["-- Choose --"] + list(questions.keys()),
                 key=f"dd_{category}",
             )
-            if question != "-- Choose --":
-                st.session_state.messages.append({"role": "user", "content": question})
+            if q != "-- Choose --":
+                st.session_state.messages.append({"role": "user", "content": q})
                 st.rerun()
 
 # ------------------------------------------------------------
-# 7. MOCK ANSWERS
-# ------------------------------------------------------------
-answers = {
-    "sales": "📊 Last month’s top devices were iPhone 16 Pro Max and Samsung A15. Sales in Indirect channels rose 12%.",
-    "inventory": "🏭 Current stock shows adequate levels except for Denver DC (iPhone 16 low).",
-    "shipments": "🚚 Shipments this week: 18,412 units. Delays mainly from DDP Marceco.",
-    "pricing": "💰 Recent price drops on Samsung A15 and Moto G Stylus ($20 avg).",
-    "forecast": "🔮 Forecast accuracy improved to 91.2% this quarter driven by new O9 inputs.",
-}
-
-# ------------------------------------------------------------
-# 8. DISPLAY CHAT HISTORY
+# 8. DISPLAY CHAT
 # ------------------------------------------------------------
 for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        st.markdown(f"<div class='chat-bubble-user'>👤 {msg['content']}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(f"<div class='chat-bubble-ai'>🤖 {msg['content']}</div>", unsafe_allow_html=True)
+    bubble = "chat-bubble-user" if msg["role"] == "user" else "chat-bubble-ai"
+    st.markdown(f"<div class='{bubble}'>👤 {msg['content']}</div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
 # 9. CHAT INPUT + LOGIC
@@ -272,12 +280,20 @@ if prompt:
     with st.spinner("🤖 Cortex AI is thinking..."):
         time.sleep(1.2)
 
-    lower = prompt.lower()
-    found = next((answers[k] for k in answers if k in lower), None)
-    reply = found or "⚠️ DATA NOT AVAILABLE — WORKING ON GETTING IN MORE DATA SOURCES."
+    # Match user query to known answers
+    reply = None
+    for cat, qa in faq.items():
+        for q, a in qa.items():
+            if q.lower() in prompt.lower():
+                reply = a
+                break
+
+    # Default fallback
+    reply = reply or "⚠️ Data Limited — working to get more data sources in"
+
     st.session_state.messages.append({"role": "assistant", "content": reply})
 
-    # SQL & chart
+    # SQL and chart preview
     sql = f"SELECT * FROM demo_table WHERE topic LIKE '%{prompt[:20]}%';"
     df = pd.DataFrame({
         "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
