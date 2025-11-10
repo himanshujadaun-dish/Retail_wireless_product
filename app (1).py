@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v5.6.3 — Based on v5.6.2 (Dropdown Fix Only)
+# Wireless Cortex AI v5.6.4 — Stable (Dropdown + Display Fix)
 # ------------------------------------------------------------
 import streamlit as st
 import time, random, datetime, copy
@@ -115,7 +115,7 @@ with st.sidebar:
     st.subheader("🔗 Info & Tools")
     st.markdown("[📘 Open Info Sheet](https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/edit?gid=0#gid=0)",unsafe_allow_html=True)
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v5.6.3 | Stable Fix (Dropdown)**")
+    st.caption("**Wireless Cortex AI v5.6.4 | Stable (Dropdown Display Fix)**")
 
 # ------------------------------------------------------------
 # 5) HEADER + KPIs
@@ -134,7 +134,7 @@ with cols[3]:
     st.selectbox("🌐 Active Data Sources",connected)
 
 # ------------------------------------------------------------
-# 6) Prewritten Q&A setup
+# 6) Q&A Logic
 # ------------------------------------------------------------
 def fmt_pct(x): return f"{x:.1f}%"
 def fmt_int(a,b): return f"{random.randint(a,b):,}"
@@ -175,9 +175,8 @@ def forecast_answers(q):
     if "model inputs" in q: return "⚙️ Inputs refreshed 01:15 AM MT."
     return None
 
-# ✅ FIXED: Normalized question handling to prevent blank results
 def answer_for_question(q):
-    qn = q.strip().lower().rstrip(".!?")  # normalize punctuation and case
+    qn = q.strip().lower().rstrip(".!?")
     ans = (
         sales_answers(qn)
         or inventory_answers(qn)
@@ -187,7 +186,6 @@ def answer_for_question(q):
     )
     return ans if ans else "⚠️ Limited Data — working on getting in more data sources"
 
-# ✅ FAQ dictionary unchanged
 FAQ={
     "Sales":[
         "Show me sales trends by channel.",
@@ -227,7 +225,7 @@ FAQ={
 }
 
 # ------------------------------------------------------------
-# 7) Suggested Questions UI (Fixed Dropdown Logic)
+# 7) Suggested Questions + Display FIX
 # ------------------------------------------------------------
 if not st.session_state.messages and not st.session_state.qa_history:
     st.markdown("### 💬 Choose an option below for suggested questions or ask a question")
@@ -235,8 +233,8 @@ if not st.session_state.messages and not st.session_state.qa_history:
         with st.expander(f"📂 {category}"):
             sel=st.selectbox(f"Select a {category} question:",["-- Choose --"]+questions,key=f"dd_{category}")
             if sel!="-- Choose --":
-                st.session_state.messages.append({"role":"user","content":sel})
                 normalized_sel = sel.strip().lower().rstrip(".!?")
+                st.session_state.messages.append({"role":"user","content":sel})
                 a=answer_for_question(normalized_sel)
                 sql=f"SELECT * FROM demo_table WHERE topic='{sel[:60]}';"
                 df=pd.DataFrame({"SKU":["A15","A16","iPhone 16","Moto G"],
@@ -246,3 +244,11 @@ if not st.session_state.messages and not st.session_state.qa_history:
                     "df_dict":df.to_dict(orient="list"),
                     "ts":datetime.datetime.now().isoformat(timespec="seconds"),"fb":None})
                 safe_rerun()
+else:
+    # ✅ SHOW Q&A RESULTS
+    st.markdown("### 💡 Q&A Results")
+    for item in reversed(st.session_state.qa_history[-3:]):  # show last 3
+        st.markdown(f"**🧠 Question:** {item['q']}")
+        st.info(item['a'])
+        df = pd.DataFrame(item['df_dict'])
+        st.dataframe(df, use_container_width=True)
