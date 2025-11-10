@@ -88,7 +88,7 @@ box-shadow:0 2px 6px rgba(0,0,0,.25);}}
 padding:10px 14px;border-radius:15px;margin:8px 0;max-width:80%;
 box-shadow:0 2px 6px rgba(0,0,0,.15);}}
 /* Auto-scroll anchor */
-#bottom_anchor {height: 1px;}
+bottom_anchor {height: 1px;}
 </style>
 """,unsafe_allow_html=True)
 
