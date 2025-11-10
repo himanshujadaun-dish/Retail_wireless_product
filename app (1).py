@@ -174,44 +174,53 @@ with st.sidebar:
         key="sidebar_source",
     )
 
-    if selected_source != "-- Choose --":
-        questions = {
-            "Sales": [
-                "Show me sales trends by channel.",
-                "What were the top-selling devices last month?",
-                "Compare iPhone vs Samsung sales this quarter.",
-                "Which SKUs have the highest return rate.",
-                "What are the sales forecasts for next month.",
-            ],
-            "Inventory": [
-                "Which SKUs are low in stock.",
-                "Show inventory aging by warehouse.",
-                "How many iPhone 16 units are in Denver DC.",
-                "List SKUs with overstock conditions.",
-                "What's the daily inventory update feed.",
-            ],
-            "Shipments": [
-                "Show delayed shipments by DDP.",
-                "How many units shipped this week.",
-                "Which SKUs are pending shipment confirmation.",
-                "Track shipment status for iPhone 16 Pro Max.",
-                "List DDPs with recurring delays.",
-            ],
-            "Pricing": [
-                "Show current device pricing by channel.",
-                "Which SKUs had price drops this week.",
-                "Compare MSRP vs promo prices.",
-                "Show competitor pricing insights.",
-                "What’s the margin for iPhone 16 Pro Max.",
-            ],
-            "Forecast": [
-                "Show activation forecast by SKU.",
-                "Compare actual vs forecast for Q3.",
-                "Which SKUs are forecasted to grow fastest.",
-                "Show forecast accuracy trend by month.",
-                "Update forecast model inputs from Dataiku.",
-            ],
-        }[selected_source]
+    if selected_source and selected_source != "-- Choose --":
+    # define all possible question lists
+    question_dict = {
+        "Sales": [
+            "Show me sales trends by channel.",
+            "What were the top-selling devices last month?",
+            "Compare iPhone vs Samsung sales this quarter.",
+            "Which SKUs have the highest return rate.",
+            "What are the sales forecasts for next month.",
+        ],
+        "Inventory": [
+            "Which SKUs are low in stock.",
+            "Show inventory aging by warehouse.",
+            "How many iPhone 16 units are in Denver DC.",
+            "List SKUs with overstock conditions.",
+            "What's the daily inventory update feed.",
+        ],
+        "Shipments": [
+            "Show delayed shipments by DDP.",
+            "How many units shipped this week.",
+            "Which SKUs are pending shipment confirmation.",
+            "Track shipment status for iPhone 16 Pro Max.",
+            "List DDPs with recurring delays.",
+        ],
+        "Pricing": [
+            "Show current device pricing by channel.",
+            "Which SKUs had price drops this week.",
+            "Compare MSRP vs promo prices.",
+            "Show competitor pricing insights.",
+            "What’s the margin for iPhone 16 Pro Max.",
+        ],
+        "Forecast": [
+            "Show activation forecast by SKU.",
+            "Compare actual vs forecast for Q3.",
+            "Which SKUs are forecasted to grow fastest.",
+            "Show forecast accuracy trend by month.",
+            "Update forecast model inputs from Dataiku.",
+        ],
+    }
+
+    # ✅ Use .get() to prevent KeyError
+    questions = question_dict.get(selected_source, [])
+
+    selected_question = st.selectbox(
+        "❓ Select a Question:", ["-- Choose --"] + questions, key="sidebar_question"
+    )
+
 
         selected_question = st.selectbox(
             "❓ Select a Question:", ["-- Choose --"] + questions, key="sidebar_question"
