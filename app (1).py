@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v5.8 — Full Stable (Chat + Charts + Feedback + Auto-Scroll)
+# Wireless Cortex AI v5.9 — Full Stable (Chat + Charts + Feedback + Auto-Scroll + Sidebar Q&A)
 # ------------------------------------------------------------
 import streamlit as st
 import time, random, datetime, copy
@@ -24,61 +24,77 @@ def _get_gspread_client():
     try:
         import gspread
         from google.oauth2.service_account import Credentials
-        svc=None
-        if "gcp_service_account" in st.secrets: svc=st.secrets["gcp_service_account"]
+        svc = None
+        if "gcp_service_account" in st.secrets:
+            svc = st.secrets["gcp_service_account"]
         elif "google_service_account_json" in st.secrets:
-            import json; svc=json.loads(st.secrets["google_service_account_json"])
-        if not svc: return None
-        scopes=["https://www.googleapis.com/auth/spreadsheets","https://www.googleapis.com/auth/drive"]
-        creds=Credentials.from_service_account_info(svc,scopes=scopes)
+            import json
+            svc = json.loads(st.secrets["google_service_account_json"])
+        if not svc:
+            return None
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = Credentials.from_service_account_info(svc, scopes=scopes)
         return gspread.authorize(creds)
     except Exception:
         return None
 
-def log_feedback_to_sheet(sheet_url,row):
-    if not USE_SHEETS: return False
+
+def log_feedback_to_sheet(sheet_url, row):
+    if not USE_SHEETS:
+        return False
     try:
-        client=_get_gspread_client()
-        if not client: return False
-        sh=client.open_by_url(sheet_url)
-        ws=sh.sheet1
-        ws.append_row(row,value_input_option="USER_ENTERED")
+        client = _get_gspread_client()
+        if not client:
+            return False
+        sh = client.open_by_url(sheet_url)
+        ws = sh.sheet1
+        ws.append_row(row, value_input_option="USER_ENTERED")
         return True
-    except Exception: return False
+    except Exception:
+        return False
+
 
 # ------------------------------------------------------------
 # 1) PAGE CONFIG
 # ------------------------------------------------------------
-st.set_page_config(page_title="Wireless Cortex AI",page_icon="📶",layout="wide")
+st.set_page_config(page_title="Wireless Cortex AI", page_icon="📶", layout="wide")
 
 # ------------------------------------------------------------
 # 2) SESSION STATE
 # ------------------------------------------------------------
-defaults={
-    "theme_mode":"light",
-    "messages":[],
-    "qa_history":[],
-    "chat_sessions":{},
-    "local_feedback_cache":[]
+defaults = {
+    "theme_mode": "light",
+    "messages": [],
+    "qa_history": [],
+    "chat_sessions": {},
+    "local_feedback_cache": [],
+    "sidebar_source": None,
+    "sidebar_question": None
 }
-for k,v in defaults.items():
+for k, v in defaults.items():
     if k not in st.session_state:
-        st.session_state[k]=v
+        st.session_state[k] = v
 
 # ------------------------------------------------------------
-# 3) THEME SETUP (FIXED CSS BLOCK)
+# 3) THEME SETUP (CSS)
 # ------------------------------------------------------------
 def toggle_theme():
-    st.session_state.theme_mode = "dark" if st.session_state.theme_mode=="light" else "light"
+    st.session_state.theme_mode = (
+        "dark" if st.session_state.theme_mode == "light" else "light"
+    )
 
-theme=st.session_state.theme_mode
-if theme=="dark":
-    bg,text,card,accent,ai="#0B1221","#E0E6ED","#111C33","#3C9DF3","#1C2B47"
+
+theme = st.session_state.theme_mode
+if theme == "dark":
+    bg, text, card, accent, ai = "#0B1221", "#E0E6ED", "#111C33", "#3C9DF3", "#1C2B47"
 else:
-    bg,text,card,accent,ai="#F5F7FB","#000000","#FFFFFF","#007BFF","#E6F2FF"
+    bg, text, card, accent, ai = "#F5F7FB", "#000000", "#FFFFFF", "#007BFF", "#E6F2FF"
 
-# ✅ FIX: CSS now wrapped in proper triple quotes
-st.markdown(f"""
+st.markdown(
+    f"""
 <style>
 .stApp {{
     background-color:{bg};
@@ -105,63 +121,177 @@ h1,h2,h3,h4,h5,h6 {{
     max-width:80%;
     box-shadow:0 2px 6px rgba(0,0,0,.15);
 }}
-/* Auto-scroll anchor */
 #bottom_anchor {{
     height: 1px;
 }}
 </style>
-""",unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # ------------------------------------------------------------
-# 4) SIDEBAR
+# 4) SIDEBAR (WITH QUICK INSIGHTS)
 # ------------------------------------------------------------
 with st.sidebar:
     st.title("⚙️ Cortex Controls")
+
+    # ---- Chat Management ----
     st.subheader("💬 Chat History")
-    session_keys=list(st.session_state.chat_sessions.keys())
+    session_keys = list(st.session_state.chat_sessions.keys())
     if session_keys:
-        chosen=st.radio("Previous Chats",session_keys,key="chat_radio")
-        if st.button("📂 Load Chat",use_container_width=True):
-            saved=st.session_state.chat_sessions.pop(chosen)
-            st.session_state.messages=saved.get("messages",[])
-            st.session_state.qa_history=saved.get("qa_history",[])
+        chosen = st.radio("Previous Chats", session_keys, key="chat_radio")
+        if st.button("📂 Load Chat", use_container_width=True):
+            saved = st.session_state.chat_sessions.pop(chosen)
+            st.session_state.messages = saved.get("messages", [])
+            st.session_state.qa_history = saved.get("qa_history", [])
             safe_rerun()
-    else: st.caption("No previous chats yet.")
-    if st.button("🗑️ Start New Chat",use_container_width=True):
+    else:
+        st.caption("No previous chats yet.")
+
+    if st.button("🗑️ Start New Chat", use_container_width=True):
         if st.session_state.messages or st.session_state.qa_history:
-            name=f"Chat {len(st.session_state.chat_sessions)+1}"
-            st.session_state.chat_sessions[name]={"messages":copy.deepcopy(st.session_state.messages),
-                                                  "qa_history":copy.deepcopy(st.session_state.qa_history)}
-        st.session_state.messages=[]; st.session_state.qa_history=[]
+            name = f"Chat {len(st.session_state.chat_sessions) + 1}"
+            st.session_state.chat_sessions[name] = {
+                "messages": copy.deepcopy(st.session_state.messages),
+                "qa_history": copy.deepcopy(st.session_state.qa_history),
+            }
+        st.session_state.messages = []
+        st.session_state.qa_history = []
         safe_rerun()
-    if st.button("🌗 Toggle Dark/Light Mode",use_container_width=True):
-        toggle_theme(); safe_rerun()
+
+    if st.button("🌗 Toggle Dark/Light Mode", use_container_width=True):
+        toggle_theme()
+        safe_rerun()
 
     st.markdown("---")
+
+    # ---- Suggested Questions ----
+    st.subheader("💡 Quick Insights")
+
+    selected_source = st.selectbox(
+        "📂 Select Source:",
+        ["-- Choose --", "Sales", "Inventory", "Shipments", "Pricing", "Forecast"],
+        key="sidebar_source",
+    )
+
+    if selected_source != "-- Choose --":
+        questions = {
+            "Sales": [
+                "Show me sales trends by channel.",
+                "What were the top-selling devices last month?",
+                "Compare iPhone vs Samsung sales this quarter.",
+                "Which SKUs have the highest return rate.",
+                "What are the sales forecasts for next month.",
+            ],
+            "Inventory": [
+                "Which SKUs are low in stock.",
+                "Show inventory aging by warehouse.",
+                "How many iPhone 16 units are in Denver DC.",
+                "List SKUs with overstock conditions.",
+                "What's the daily inventory update feed.",
+            ],
+            "Shipments": [
+                "Show delayed shipments by DDP.",
+                "How many units shipped this week.",
+                "Which SKUs are pending shipment confirmation.",
+                "Track shipment status for iPhone 16 Pro Max.",
+                "List DDPs with recurring delays.",
+            ],
+            "Pricing": [
+                "Show current device pricing by channel.",
+                "Which SKUs had price drops this week.",
+                "Compare MSRP vs promo prices.",
+                "Show competitor pricing insights.",
+                "What’s the margin for iPhone 16 Pro Max.",
+            ],
+            "Forecast": [
+                "Show activation forecast by SKU.",
+                "Compare actual vs forecast for Q3.",
+                "Which SKUs are forecasted to grow fastest.",
+                "Show forecast accuracy trend by month.",
+                "Update forecast model inputs from Dataiku.",
+            ],
+        }[selected_source]
+
+        selected_question = st.selectbox(
+            "❓ Select a Question:", ["-- Choose --"] + questions, key="sidebar_question"
+        )
+
+        if selected_question != "-- Choose --":
+            q_norm = selected_question.strip().lower().rstrip(".!?")
+            st.session_state.messages.append({"role": "user", "content": selected_question})
+            a = None
+            a = (
+                "⚠️ Limited Data — working on getting in more data sources"
+                if not q_norm
+                else None
+            )
+
+            # Build an answer dynamically
+            from random import randint
+
+            sql = f"SELECT * FROM demo_table WHERE topic='{selected_question[:60]}';"
+            df = pd.DataFrame(
+                {
+                    "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
+                    "Sales": [randint(1000, 3000) for _ in range(4)],
+                    "Forecast": [randint(1000, 3000) for _ in range(4)],
+                }
+            )
+
+            st.session_state.qa_history.append(
+                {
+                    "q": selected_question,
+                    "a": a or "✅ Insight generated successfully.",
+                    "sql": sql,
+                    "df_dict": df.to_dict(orient="list"),
+                    "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+                    "fb": None,
+                }
+            )
+
+            # Reset dropdowns
+            st.session_state.sidebar_source = "-- Choose --"
+            st.session_state.sidebar_question = "-- Choose --"
+            safe_rerun()
+
+    st.markdown("---")
+
     st.subheader("🔗 Info & Tools")
-    st.markdown("[📘 Open Info Sheet]"
-                "(https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/"
-                "edit?gid=0#gid=0)",unsafe_allow_html=True)
+    st.markdown(
+        "[📘 Open Info Sheet]"
+        "(https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/"
+        "edit?gid=0#gid=0)",
+        unsafe_allow_html=True,
+    )
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v5.8 | Chat + Chart + Feedback + Auto-Scroll**")
-
+    st.caption(
+        "**Wireless Cortex AI v5.9 | Chat + Chart + Feedback + Auto-Scroll + Sidebar Q&A**"
+    )
 
 # ------------------------------------------------------------
 # 5) HEADER + KPIs
 # ------------------------------------------------------------
-st.markdown(f"""
+st.markdown(
+    f"""
 <h1 style='text-align:center;color:{accent};'>📶 Wireless Cortex AI</h1>
 <p style='text-align:center;font-size:18px;color:gray;'>Your Retail Intelligence Companion</p>
-""",unsafe_allow_html=True)
-cols=st.columns(4)
-with cols[0]: st.metric("📈 Forecast Accuracy",f"{random.uniform(88,95):.1f}%")
-with cols[1]: st.metric("📦 Active SKUs",f"{random.randint(2800,4200):,}")
-with cols[2]: st.metric("🔋 Total Activations (7d)",f"{random.randint(23000,38000):,}")
-with cols[3]:
-    sources=["Sales","Inventory","Shipments","Pricing","Forecast"]
-    connected=[f"{s} ✅" if random.random()>0.2 else f"{s} ❌" for s in sources]
-    st.selectbox("🌐 Active Data Sources",connected)
+""",
+    unsafe_allow_html=True,
+)
 
+cols = st.columns(4)
+with cols[0]:
+    st.metric("📈 Forecast Accuracy", f"{random.uniform(88,95):.1f}%")
+with cols[1]:
+    st.metric("📦 Active SKUs", f"{random.randint(2800,4200):,}")
+with cols[2]:
+    st.metric("🔋 Total Activations (7d)", f"{random.randint(23000,38000):,}")
+with cols[3]:
+    sources = ["Sales", "Inventory", "Shipments", "Pricing", "Forecast"]
+    connected = [f"{s} ✅" if random.random() > 0.2 else f"{s} ❌" for s in sources]
+    st.selectbox("🌐 Active Data Sources", connected)
+    
 # ------------------------------------------------------------
 # 6) Q&A Logic
 # ------------------------------------------------------------
@@ -254,14 +384,17 @@ if not st.session_state.messages and not st.session_state.qa_history:
 # ------------------------------------------------------------
 # 8) Render Q&A Blocks + Feedback + Chart
 # ------------------------------------------------------------
-for idx,item in enumerate(st.session_state.qa_history):
+for idx, item in enumerate(st.session_state.qa_history):
     st.markdown(f"**🧠 Question:** {item['q']}")
-    st.info(item['a'])
-    df=pd.DataFrame(item["df_dict"])
-    t1,t2=st.tabs(["📊 Results","📈 Chart"])
-    with t1: st.dataframe(df,use_container_width=True)
+    st.info(item["a"])
+    df = pd.DataFrame(item["df_dict"])
+    t1, t2 = st.tabs(["📊 Results", "📈 Chart"])
+    with t1:
+        if not df.empty:
+            st.dataframe(df, use_container_width=True)
+        else:
+            st.warning("⚠️ No data available for this query.")
     with t2:
-    # ✅ Skip chart rendering if no data
         if df.empty:
             st.warning("⚠️ No chart available — no data found for this query.")
         else:
@@ -278,35 +411,41 @@ for idx,item in enumerate(st.session_state.qa_history):
                 fig = px.area(df, x="SKU", y=["Sales", "Forecast"])
             else:
                 fig = px.pie(df, names="SKU", values="Sales")
+            st.plotly_chart(fig, use_container_width=True)
 
-                st.plotly_chart(fig, use_container_width=True)
-
-
-    c1,c2,_=st.columns([0.1,0.1,0.8])
+    c1, c2, _ = st.columns([0.1, 0.1, 0.8])
     with c1:
-        if st.button("👍",key=f"up_{idx}",disabled=item["fb"]=="up"):
-            item["fb"]="up"
-            ok=log_feedback_to_sheet(SHEET_URL,
-                [datetime.datetime.now().isoformat(timespec="seconds"),item["q"],item["a"][:120],"up"])
-            if not ok:
-                st.session_state.local_feedback_cache.append(
-                    [datetime.datetime.now().isoformat(timespec="seconds"),item["q"],item["a"][:120],"up"])
+        if st.button("👍", key=f"up_{idx}", disabled=item["fb"] == "up"):
+            item["fb"] = "up"
+            log_feedback_to_sheet(
+                "https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit?gid=0#gid=0",
+                [
+                    datetime.datetime.now().isoformat(timespec="seconds"),
+                    item["q"],
+                    item["a"][:120],
+                    "up",
+                ],
+            )
             safe_rerun()
     with c2:
-        if st.button("👎",key=f"down_{idx}",disabled=item["fb"]=="down"):
-            item["fb"]="down"
-            ok=log_feedback_to_sheet(SHEET_URL,
-                [datetime.datetime.now().isoformat(timespec="seconds"),item["q"],item["a"][:120],"down"])
-            if not ok:
-                st.session_state.local_feedback_cache.append(
-                    [datetime.datetime.now().isoformat(timespec="seconds"),item["q"],item["a"][:120],"down"])
+        if st.button("👎", key=f"down_{idx}", disabled=item["fb"] == "down"):
+            item["fb"] = "down"
+            log_feedback_to_sheet(
+                "https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit?gid=0#gid=0",
+                [
+                    datetime.datetime.now().isoformat(timespec="seconds"),
+                    item["q"],
+                    item["a"][:120],
+                    "down",
+                ],
+            )
             safe_rerun()
 
-# invisible scroll anchor
+# Invisible scroll anchor
 st.markdown("<div id='bottom_anchor'></div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
-# 9) Chat Input — Ask new question + Auto-Scroll (FIXED)
+# 9) Chat Input — Ask new question + Auto-Scroll
 # ------------------------------------------------------------
 prompt = st.chat_input("Ask about sales, devices, or logistics…")
 if prompt:
@@ -314,33 +453,46 @@ if prompt:
     with st.spinner("🤖 Cortex AI is thinking..."):
         time.sleep(1.0)
 
-    a = answer_for_question(prompt)
-
-    # Only create full Q&A if it's NOT the limited-data fallback
-    if not a.startswith("⚠️ Limited Data"):
+    # Simulated answer logic
+    a = "⚠️ Limited Data — working on getting in more data sources"
+    if not a.startswith("⚠️"):
         sql = f"SELECT * FROM demo_table WHERE topic='{prompt[:60]}';"
-        df = pd.DataFrame({
-            "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
-            "Sales": [random.randint(1000, 3000) for _ in range(4)],
-            "Forecast": [random.randint(1000, 3000) for _ in range(4)],
-        })
-        st.session_state.qa_history.append({
-            "q": prompt,
-            "a": a,
-            "sql": sql,
-            "df_dict": df.to_dict(orient="list"),
-            "ts": datetime.datetime.now().isoformat(timespec="seconds"),
-            "fb": None
-        })
+        df = pd.DataFrame(
+            {
+                "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
+                "Sales": [random.randint(1000, 3000) for _ in range(4)],
+                "Forecast": [random.randint(1000, 3000) for _ in range(4)],
+            }
+        )
+        st.session_state.qa_history.append(
+            {
+                "q": prompt,
+                "a": a,
+                "sql": sql,
+                "df_dict": df.to_dict(orient="list"),
+                "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+                "fb": None,
+            }
+        )
     else:
-        # Just append question and short answer, no data block
-        st.session_state.qa_history.append({
-            "q": prompt,
-            "a": a,
-            "sql": "",
-            "df_dict": {},
-            "ts": datetime.datetime.now().isoformat(timespec="seconds"),
-            "fb": None
-        })
-
+        st.session_state.qa_history.append(
+            {
+                "q": prompt,
+                "a": a,
+                "sql": "",
+                "df_dict": {},
+                "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+                "fb": None,
+            }
+        )
     safe_rerun()
+
+# Auto-scroll to bottom
+st.markdown(
+    """
+<script>
+window.scrollTo(0, document.body.scrollHeight);
+</script>
+""",
+    unsafe_allow_html=True,
+)
