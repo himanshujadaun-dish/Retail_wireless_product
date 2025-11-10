@@ -293,26 +293,41 @@ for idx,item in enumerate(st.session_state.qa_history):
 st.markdown("<div id='bottom_anchor'></div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
-# 9) Chat Input — Ask new question + Auto-Scroll
+# 9) Chat Input — Ask new question + Auto-Scroll (FIXED)
 # ------------------------------------------------------------
-prompt=st.chat_input("Ask about sales, devices, or logistics…")
+prompt = st.chat_input("Ask about sales, devices, or logistics…")
 if prompt:
-    st.session_state.messages.append({"role":"user","content":prompt})
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.spinner("🤖 Cortex AI is thinking..."):
         time.sleep(1.0)
-    a=answer_for_question(prompt)
-    sql=f"SELECT * FROM demo_table WHERE topic='{prompt[:60]}';"
-    df=pd.DataFrame({"SKU":["A15","A16","iPhone 16","Moto G"],
-                     "Sales":[random.randint(1000,3000) for _ in range(4)],
-                     "Forecast":[random.randint(1000,3000) for _ in range(4)]})
-    st.session_state.qa_history.append({"q":prompt,"a":a,"sql":sql,
-        "df_dict":df.to_dict(orient="list"),
-        "ts":datetime.datetime.now().isoformat(timespec="seconds"),"fb":None})
-    safe_rerun()
 
-# JS auto-scroll to bottom
-st.markdown("""
-<script>
-window.scrollTo(0, document.body.scrollHeight);
-</script>
-""",unsafe_allow_html=True)
+    a = answer_for_question(prompt)
+
+    # Only create full Q&A if it's NOT the limited-data fallback
+    if not a.startswith("⚠️ Limited Data"):
+        sql = f"SELECT * FROM demo_table WHERE topic='{prompt[:60]}';"
+        df = pd.DataFrame({
+            "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
+            "Sales": [random.randint(1000, 3000) for _ in range(4)],
+            "Forecast": [random.randint(1000, 3000) for _ in range(4)],
+        })
+        st.session_state.qa_history.append({
+            "q": prompt,
+            "a": a,
+            "sql": sql,
+            "df_dict": df.to_dict(orient="list"),
+            "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+            "fb": None
+        })
+    else:
+        # Just append question and short answer, no data block
+        st.session_state.qa_history.append({
+            "q": prompt,
+            "a": a,
+            "sql": "",
+            "df_dict": {},
+            "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+            "fb": None
+        })
+
+    safe_rerun()
