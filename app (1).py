@@ -66,7 +66,7 @@ for k,v in defaults.items():
         st.session_state[k]=v
 
 # ------------------------------------------------------------
-# 3) THEME SETUP
+# 3) THEME SETUP (FIXED CSS BLOCK)
 # ------------------------------------------------------------
 def toggle_theme():
     st.session_state.theme_mode = "dark" if st.session_state.theme_mode=="light" else "light"
@@ -77,18 +77,38 @@ if theme=="dark":
 else:
     bg,text,card,accent,ai="#F5F7FB","#000000","#FFFFFF","#007BFF","#E6F2FF"
 
+# ✅ FIX: CSS now wrapped in proper triple quotes
 st.markdown(f"""
 <style>
-.stApp {{background-color:{bg};color:{text};}}
-h1,h2,h3,h4,h5,h6{{color:{accent};}}
-.chat-bubble-user{{background-color:{card};color:{text};
-padding:10px 14px;border-radius:15px;margin:8px 0;max-width:80%;
-box-shadow:0 2px 6px rgba(0,0,0,.25);}}
-.chat-bubble-ai{{background-color:{ai};color:#E8EEF7;
-padding:10px 14px;border-radius:15px;margin:8px 0;max-width:80%;
-box-shadow:0 2px 6px rgba(0,0,0,.15);}}
+.stApp {{
+    background-color:{bg};
+    color:{text};
+}}
+h1,h2,h3,h4,h5,h6 {{
+    color:{accent};
+}}
+.chat-bubble-user {{
+    background-color:{card};
+    color:{text};
+    padding:10px 14px;
+    border-radius:15px;
+    margin:8px 0;
+    max-width:80%;
+    box-shadow:0 2px 6px rgba(0,0,0,.25);
+}}
+.chat-bubble-ai {{
+    background-color:{ai};
+    color:#E8EEF7;
+    padding:10px 14px;
+    border-radius:15px;
+    margin:8px 0;
+    max-width:80%;
+    box-shadow:0 2px 6px rgba(0,0,0,.15);
+}}
 /* Auto-scroll anchor */
-bottom_anchor {height: 1px;}
+#bottom_anchor {{
+    height: 1px;
+}}
 </style>
 """,unsafe_allow_html=True)
 
@@ -124,6 +144,7 @@ with st.sidebar:
                 "edit?gid=0#gid=0)",unsafe_allow_html=True)
     st.markdown("---")
     st.caption("**Wireless Cortex AI v5.8 | Chat + Chart + Feedback + Auto-Scroll**")
+
 
 # ------------------------------------------------------------
 # 5) HEADER + KPIs
