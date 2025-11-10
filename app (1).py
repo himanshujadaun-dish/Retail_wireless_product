@@ -175,7 +175,7 @@ with st.sidebar:
     )
 
     if selected_source and selected_source != "-- Choose --":
-    # define all possible question lists
+        # define all possible question lists
         question_dict = {
             "Sales": [
                 "Show me sales trends by channel.",
@@ -183,14 +183,14 @@ with st.sidebar:
                 "Compare iPhone vs Samsung sales this quarter.",
                 "Which SKUs have the highest return rate.",
                 "What are the sales forecasts for next month.",
-                    ],
+            ],
             "Inventory": [
                 "Which SKUs are low in stock.",
                 "Show inventory aging by warehouse.",
                 "How many iPhone 16 units are in Denver DC.",
                 "List SKUs with overstock conditions.",
                 "What's the daily inventory update feed.",
-                        ],
+            ],
             "Shipments": [
                 "Show delayed shipments by DDP.",
                 "How many units shipped this week.",
@@ -204,23 +204,18 @@ with st.sidebar:
                 "Compare MSRP vs promo prices.",
                 "Show competitor pricing insights.",
                 "What’s the margin for iPhone 16 Pro Max.",
-                        ],
+            ],
             "Forecast": [
                 "Show activation forecast by SKU.",
                 "Compare actual vs forecast for Q3.",
                 "Which SKUs are forecasted to grow fastest.",
                 "Show forecast accuracy trend by month.",
                 "Update forecast model inputs from Dataiku.",
-                        ],
-                    }
+            ],
+        }
 
-    # ✅ Use .get() to prevent KeyError
-    questions = question_dict.get(selected_source, [])
-
-    selected_question = st.selectbox(
-        "❓ Select a Question:", ["-- Choose --"] + questions, key="sidebar_question"
-    )
-
+        # ✅ Use .get() to prevent KeyError
+        questions = question_dict.get(selected_source, [])
 
         selected_question = st.selectbox(
             "❓ Select a Question:", ["-- Choose --"] + questions, key="sidebar_question"
@@ -277,6 +272,7 @@ with st.sidebar:
     st.caption(
         "**Wireless Cortex AI v5.9 | Chat + Chart + Feedback + Auto-Scroll + Sidebar Q&A**"
     )
+
 
 # ------------------------------------------------------------
 # 5) HEADER + KPIs
