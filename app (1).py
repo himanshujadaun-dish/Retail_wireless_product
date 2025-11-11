@@ -130,7 +130,7 @@ h1,h2,h3,h4,h5,h6 {{
 )
 
 # ------------------------------------------------------------
-# 4) SIDEBAR (WITH QUICK INSIGHTS)
+# 4) SIDEBAR (Simplified — Quick Insights Removed)
 # ------------------------------------------------------------
 with st.sidebar:
     st.title("⚙️ Cortex Controls")
@@ -165,102 +165,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ---- Suggested Questions ----
-    st.subheader("💡 Quick Insights")
-
-    selected_source = st.selectbox(
-        "📂 Select Source:",
-        ["-- Choose --", "Sales", "Inventory", "Shipments", "Pricing", "Forecast"],
-        key="sidebar_source",
-    )
-
-    if selected_source and selected_source != "-- Choose --":
-        # define all possible question lists
-        question_dict = {
-            "Sales": [
-                "Show me sales trends by channel.",
-                "What were the top-selling devices last month?",
-                "Compare iPhone vs Samsung sales this quarter.",
-                "Which SKUs have the highest return rate.",
-                "What are the sales forecasts for next month.",
-            ],
-            "Inventory": [
-                "Which SKUs are low in stock.",
-                "Show inventory aging by warehouse.",
-                "How many iPhone 16 units are in Denver DC.",
-                "List SKUs with overstock conditions.",
-                "What's the daily inventory update feed.",
-            ],
-            "Shipments": [
-                "Show delayed shipments by DDP.",
-                "How many units shipped this week.",
-                "Which SKUs are pending shipment confirmation.",
-                "Track shipment status for iPhone 16 Pro Max.",
-                "List DDPs with recurring delays.",
-            ],
-            "Pricing": [
-                "Show current device pricing by channel.",
-                "Which SKUs had price drops this week.",
-                "Compare MSRP vs promo prices.",
-                "Show competitor pricing insights.",
-                "What’s the margin for iPhone 16 Pro Max.",
-            ],
-            "Forecast": [
-                "Show activation forecast by SKU.",
-                "Compare actual vs forecast for Q3.",
-                "Which SKUs are forecasted to grow fastest.",
-                "Show forecast accuracy trend by month.",
-                "Update forecast model inputs from Dataiku.",
-            ],
-        }
-
-        # ✅ Use .get() to prevent KeyError
-        questions = question_dict.get(selected_source, [])
-
-        selected_question = st.selectbox(
-            "❓ Select a Question:", ["-- Choose --"] + questions, key="sidebar_question"
-        )
-
-        if selected_question != "-- Choose --":
-            q_norm = selected_question.strip().lower().rstrip(".!?")
-            st.session_state.messages.append({"role": "user", "content": selected_question})
-            a = None
-            a = (
-                "⚠️ Limited Data — working on getting in more data sources"
-                if not q_norm
-                else None
-            )
-
-            # Build an answer dynamically
-            from random import randint
-
-            sql = f"SELECT * FROM demo_table WHERE topic='{selected_question[:60]}';"
-            df = pd.DataFrame(
-                {
-                    "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
-                    "Sales": [randint(1000, 3000) for _ in range(4)],
-                    "Forecast": [randint(1000, 3000) for _ in range(4)],
-                }
-            )
-
-            st.session_state.qa_history.append(
-                {
-                    "q": selected_question,
-                    "a": a or "✅ Insight generated successfully.",
-                    "sql": sql,
-                    "df_dict": df.to_dict(orient="list"),
-                    "ts": datetime.datetime.now().isoformat(timespec="seconds"),
-                    "fb": None,
-                }
-            )
-
-            # Reset dropdowns
-            st.session_state.sidebar_source = "-- Choose --"
-            st.session_state.sidebar_question = "-- Choose --"
-            safe_rerun()
-
-    st.markdown("---")
-
+    # ---- Info & Tools ----
     st.subheader("🔗 Info & Tools")
     st.markdown(
         "[📘 Open Info Sheet]"
@@ -268,10 +173,12 @@ with st.sidebar:
         "edit?gid=0#gid=0)",
         unsafe_allow_html=True,
     )
+
     st.markdown("---")
     st.caption(
-        "**Wireless Cortex AI v5.9 | Chat + Chart + Feedback + Auto-Scroll + Sidebar Q&A**"
+        "**Wireless Cortex AI v5.9 | Chat + Chart + Feedback + Auto-Scroll**"
     )
+
 
 
 # ------------------------------------------------------------
