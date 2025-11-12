@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v6.3 — Final Polished Version
+# Wireless Cortex AI v6.4 — Final Production Build (Boost Orange Theme)
 # ------------------------------------------------------------
 import streamlit as st
 import time, random, datetime, copy, json
@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.express as px
 
 # ------------------------------------------------------------
-# 0) Safe Rerun
+# Safe Rerun
 # ------------------------------------------------------------
 def safe_rerun():
     try:
@@ -19,7 +19,7 @@ def safe_rerun():
 # Google Sheets Setup
 # ------------------------------------------------------------
 USE_SHEETS = True
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit#gid=0"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit?gid=0"
 
 def _get_gspread_client():
     try:
@@ -32,7 +32,10 @@ def _get_gspread_client():
             svc = json.loads(st.secrets["google_service_account_json"])
         if not svc:
             return None
-        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
         creds = Credentials.from_service_account_info(svc, scopes=scopes)
         return gspread.authorize(creds)
     except Exception:
@@ -50,12 +53,12 @@ def _open_or_create_worksheet(client, sheet_url, tab_name):
         return None
 
 # ------------------------------------------------------------
-# 1) PAGE CONFIG
+# PAGE CONFIG
 # ------------------------------------------------------------
 st.set_page_config(page_title="Wireless Cortex AI", page_icon="📶", layout="wide")
 
 # ------------------------------------------------------------
-# 2) SESSION STATE
+# SESSION STATE
 # ------------------------------------------------------------
 defaults = {
     "user_email": "guest_user@corp.com",
@@ -69,9 +72,10 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 # ------------------------------------------------------------
-# 3) THEME + CSS
+# THEME (Boost Orange)
 # ------------------------------------------------------------
-bg, text, card, accent, ai = "#F5F7FB", "#000000", "#FFFFFF", "#007BFF", "#E6F2FF"
+accent = "#FF6600"
+bg, text, card, ai = "#F5F7FB", "#000000", "#FFFFFF", "#FFF4EB"
 
 st.markdown(
     f"""
@@ -101,7 +105,8 @@ h1,h2,h3,h4,h5,h6 {{
 }}
 .faq-card:hover {{
     transform:scale(1.03);
-    box-shadow:0 4px 10px rgba(0,0,0,0.15);
+    box-shadow:0 4px 12px rgba(255,102,0,0.4);
+    border:1px solid {accent};
 }}
 .star-btn {{
     text-align:right;
@@ -114,7 +119,7 @@ h1,h2,h3,h4,h5,h6 {{
 )
 
 # ------------------------------------------------------------
-# 4) Persistent Memory
+# Persistent Memory
 # ------------------------------------------------------------
 def load_user_memory():
     try:
@@ -151,7 +156,7 @@ def save_user_memory():
 load_user_memory()
 
 # ------------------------------------------------------------
-# 5) SIDEBAR
+# SIDEBAR
 # ------------------------------------------------------------
 with st.sidebar:
     st.title("⚙️ Cortex Controls")
@@ -174,13 +179,13 @@ with st.sidebar:
         else:
             st.caption("No starred items yet.")
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v6.3 | Star + Animated FAQ + Memory**")
+    st.caption("**Wireless Cortex AI v6.4 | Boost Orange | Persistent Memory**")
 
 # ------------------------------------------------------------
-# 6) HEADER + KPIs
+# HEADER + KPIs
 # ------------------------------------------------------------
 info_link = (
-    "https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/edit#gid=0#gid=0"
+    "https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/edit?gid=0#gid=0"
 )
 col_title, col_info = st.columns([0.92, 0.08])
 with col_title:
@@ -207,7 +212,7 @@ for i, (k, v) in enumerate(metrics):
         st.metric(k, v)
 
 # ------------------------------------------------------------
-# 7) FAQ
+# FAQ CONFIG
 # ------------------------------------------------------------
 FAQ = {
     "📊 Sales": ["Show me sales trends by channel.", "Top-selling devices last month.",
@@ -233,7 +238,7 @@ def answer_for_question(q):
     return "⚠️ Limited Data — working on getting in more data sources."
 
 # ------------------------------------------------------------
-# 8) Question Handler
+# QUESTION HANDLER
 # ------------------------------------------------------------
 def process_question(q):
     a = answer_for_question(q)
@@ -256,7 +261,7 @@ def process_question(q):
     safe_rerun()
 
 # ------------------------------------------------------------
-# 9) Q&A Display
+# Q&A DISPLAY
 # ------------------------------------------------------------
 for idx, item in enumerate(st.session_state.qa_history):
     cstar, qtext = st.columns([0.1, 0.9])
@@ -280,23 +285,22 @@ for idx, item in enumerate(st.session_state.qa_history):
             item["fb"] = "down"; save_user_memory(); safe_rerun()
 
 # ------------------------------------------------------------
-# 10) Chat Input
+# CHAT INPUT
 # ------------------------------------------------------------
 prompt = st.chat_input("Ask about sales, devices, or logistics…")
 if prompt:
     process_question(prompt)
 
 # ------------------------------------------------------------
-# 11) Show FAQ (After Question Answered)
+# ALWAYS SHOW FAQ
 # ------------------------------------------------------------
-if st.session_state.qa_history:
-    st.markdown("### 💬 Select a question from dropdown or ask a question in the chat below.")
-    categories = list(FAQ.keys())
-    cols = st.columns(len(categories))
-    for i, cat in enumerate(categories):
-        with cols[i]:
-            st.markdown(f"<div class='faq-card'><b>{cat}</b>", unsafe_allow_html=True)
-            sel = st.selectbox("", ["-- Choose --"] + FAQ[cat], key=f"faq_{cat}_{random.randint(1,9999)}")
-            st.markdown("</div>", unsafe_allow_html=True)
-            if sel != "-- Choose --":
-                process_question(sel)
+st.markdown("### 💬 Select a question from dropdown or ask a question in the chat below.")
+categories = list(FAQ.keys())
+cols = st.columns(len(categories))
+for i, cat in enumerate(categories):
+    with cols[i]:
+        st.markdown(f"<div class='faq-card'><b>{cat}</b>", unsafe_allow_html=True)
+        sel = st.selectbox("", ["-- Choose --"] + FAQ[cat], key=f"faq_{cat}_{random.randint(1,9999)}")
+        st.markdown("</div>", unsafe_allow_html=True)
+        if sel != "-- Choose --":
+            process_question(sel)
