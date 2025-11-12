@@ -69,6 +69,18 @@ defaults = {
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
+# ------------------------------------------------------------
+# Handle deferred dropdown reset safely on startup of rerun
+# ------------------------------------------------------------
+if "pending_reset" in st.session_state and st.session_state.pending_reset:
+    _key = st.session_state.pending_reset
+    if _key in st.session_state:
+        try:
+            st.session_state[_key] = "-- Choose --"
+        except Exception:
+            pass
+    st.session_state.pending_reset = None
+
 
 # ------------------------------------------------------------
 # THEME (Boost Orange)
@@ -302,7 +314,7 @@ if prompt:
     process_question(prompt)
 
 # ------------------------------------------------------------
-# ALWAYS SHOW FAQ — instant answer + safe reset (v6.4.6-patch1)
+# ALWAYS SHOW FAQ — instant answer + deferred safe reset
 # ------------------------------------------------------------
 st.markdown(
     f"### <span style='color:{accent};'>💬 Select a question from dropdown or ask a question in the chat below.</span>",
@@ -313,8 +325,8 @@ def on_faq_change(key):
     sel = st.session_state.get(key)
     if sel and sel != "-- Choose --":
         process_question(sel)
-        # safely queue the reset for next rerun
-        st.session_state["pending_reset"] = key
+        # mark this key for reset and rerun
+        st.session_state.pending_reset = key
         safe_rerun()
 
 categories = list(FAQ.keys())
@@ -331,9 +343,3 @@ for i, cat in enumerate(categories):
             args=(f"faq_{cat}",),
         )
         st.markdown("</div>", unsafe_allow_html=True)
-
-# Handle reset safely right after rerun
-if "pending_reset" in st.session_state and st.session_state.pending_reset:
-    key = st.session_state.pending_reset
-    st.session_state.update({key: "-- Choose --"})
-    st.session_state.pending_reset = None
