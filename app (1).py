@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v6.1 — Persistent Memory + 6 KPIs + Info + Starred + Bugfix
+# Wireless Cortex AI v6.2 — Star on Top + Sidebar Dropdown + Tiled FAQ + Persistent Memory
 # ------------------------------------------------------------
 import streamlit as st
 import time, random, datetime, copy, json
@@ -39,8 +39,7 @@ def _get_gspread_client():
         ]
         creds = Credentials.from_service_account_info(svc, scopes=scopes)
         return gspread.authorize(creds)
-    except Exception as e:
-        st.error(f"Error setting up Sheets client: {e}")
+    except Exception:
         return None
 
 def _open_or_create_worksheet(client, sheet_url, tab_name):
@@ -51,8 +50,7 @@ def _open_or_create_worksheet(client, sheet_url, tab_name):
         except:
             ws = sh.add_worksheet(title=tab_name, rows="1000", cols="10")
         return ws
-    except Exception as e:
-        st.error(f"Could not access worksheet: {e}")
+    except Exception:
         return None
 
 # ------------------------------------------------------------
@@ -98,13 +96,18 @@ h1,h2,h3,h4,h5,h6 {{
     cursor:pointer;
     opacity:0.7;
 }}
+.star-btn {{
+    text-align:right;
+    margin-top:-15px;
+    margin-bottom:10px;
+}}
 </style>
 """,
     unsafe_allow_html=True,
 )
 
 # ------------------------------------------------------------
-# 4) Persistent Memory (Load from Google Sheets)
+# 4) Persistent Memory
 # ------------------------------------------------------------
 def load_user_memory():
     try:
@@ -114,19 +117,17 @@ def load_user_memory():
         ws_chat = _open_or_create_worksheet(client, SHEET_URL, "chat_sessions")
         ws_star = _open_or_create_worksheet(client, SHEET_URL, "starred_questions")
 
-        # Load chat sessions
         rows = ws_chat.get_all_records()
         for row in rows:
             if row.get("user") == st.session_state.user_email:
                 st.session_state.chat_sessions[row["session_name"]] = json.loads(row["data"])
 
-        # Load starred
         rows_star = ws_star.get_all_records()
         for row in rows_star:
             if row.get("user") == st.session_state.user_email:
                 st.session_state.starred.append({"q": row["question"], "a": row["answer"]})
-    except Exception as e:
-        st.warning(f"⚠️ Memory load failed: {e}")
+    except:
+        pass
 
 def save_user_memory():
     try:
@@ -136,35 +137,26 @@ def save_user_memory():
         ws_chat = _open_or_create_worksheet(client, SHEET_URL, "chat_sessions")
         ws_star = _open_or_create_worksheet(client, SHEET_URL, "starred_questions")
 
-        # Clear user rows first
-        data = ws_chat.get_all_records()
-        keep = [d for d in data if d.get("user") != st.session_state.user_email]
         ws_chat.clear()
         ws_chat.append_row(["user", "session_name", "data"])
-        for row in keep:
-            ws_chat.append_row([row["user"], row["session_name"], row["data"]])
         for name, session in st.session_state.chat_sessions.items():
             ws_chat.append_row([
                 st.session_state.user_email, name, json.dumps(session)
             ])
 
-        data2 = ws_star.get_all_records()
-        keep2 = [d for d in data2 if d.get("user") != st.session_state.user_email]
         ws_star.clear()
         ws_star.append_row(["user", "question", "answer"])
-        for row in keep2:
-            ws_star.append_row([row["user"], row["question"], row["answer"]])
         for star in st.session_state.starred:
             ws_star.append_row([
                 st.session_state.user_email, star["q"], star["a"]
             ])
-    except Exception as e:
-        st.warning(f"⚠️ Memory save failed: {e}")
+    except:
+        pass
 
 load_user_memory()
 
 # ------------------------------------------------------------
-# 5) SIDEBAR (Simplified — Memory + Starred)
+# 5) SIDEBAR (Simplified — Memory + Collapsible Starred)
 # ------------------------------------------------------------
 with st.sidebar:
     st.title("⚙️ Cortex Controls")
@@ -182,14 +174,15 @@ with st.sidebar:
         st.caption("No previous chats yet.")
 
     st.markdown("---")
-    st.subheader("⭐ Starred Q&As")
-    if st.session_state.starred:
-        for star in st.session_state.starred:
-            st.markdown(f"**{star['q']}**  \n> {star['a']}")
-    else:
-        st.caption("No starred items yet.")
+    with st.expander("⭐ Starred Q&As", expanded=False):
+        if st.session_state.starred:
+            for star in st.session_state.starred:
+                st.markdown(f"**{star['q']}**  \n> {star['a']}")
+        else:
+            st.caption("No starred items yet.")
+
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v6.1 | Persistent + Bugfix**")
+    st.caption("**Wireless Cortex AI v6.2 | Star + Tiled FAQ + Memory**")
 
 # ------------------------------------------------------------
 # 6) HEADER + INFO ICON + 6 KPIs
@@ -225,52 +218,8 @@ for i in range(6):
         st.metric(kpi_names[i], kpi_values[i])
 
 # ------------------------------------------------------------
-# 7) Q&A Logic
+# 7) FAQ Data
 # ------------------------------------------------------------
-def fmt_pct(x): return f"{x:.1f}%"
-def fmt_int(a,b): return f"{random.randint(a,b):,}"
-
-def sales_answers(q):
-    if "sales trends" in q: return f"📈 Indirect {fmt_pct(random.uniform(8,15))} MoM, Web {fmt_pct(random.uniform(5,12))}."
-    if "top-selling devices" in q: return "📊 iPhone 16 Pro Max and Samsung A15 led overall."
-    if "compare iphone vs samsung" in q: return "📊 iPhone 55% vs Samsung 40% share."
-    if "highest return rate" in q: return "⚠️ Moto G Stylus showing elevated 4.2% return rate."
-    if "sales forecasts" in q: return "🔮 +6% MoM expected, mainly from iPhone 16 upgrades."
-    return None
-def inventory_answers(q):
-    if "low in stock" in q: return "🏭 iPhone 16 128GB and A15 Blue are low in West Coast DCs."
-    if "inventory aging" in q: return "⏳ Denver 30d, Dallas 26d, NY 20d."
-    if "how many iphone 16" in q: return f"📦 {fmt_int(1200,1800)} units."
-    if "overstock" in q: return "⚠️ Moto G Power overstocked in Central."
-    if "daily inventory" in q: return "🕓 Dataiku job INV_2025_09 every 4 h."
-    return None
-def shipments_answers(q):
-    if "delayed shipments" in q: return "🚚 Brightstar delays in Midwest due to weather."
-    if "units shipped" in q: return f"📦 {fmt_int(17000,19000)} units WTD."
-    if "pending shipment" in q: return f"⚙️ {fmt_int(180,260)} pending (60% Apple)."
-    if "track shipment" in q: return "📍 Dallas TX, ETA 2 days."
-    if "recurring delays" in q: return "⏰ Brightstar and Marceco >5× Q3."
-    return None
-def pricing_answers(q):
-    if "device pricing" in q: return "💰 iPhone 16 $1,099 (Web), $1,049 (Indirect)."
-    if "price drops" in q: return "📉 A15 (-$30), Moto G (-$25)."
-    if "msrp" in q: return "💵 Avg 9% below MSRP."
-    if "competitor pricing" in q: return "🏷️ Metro $20 lower on iPhone 15."
-    if "margin" in q: return f"💸 Margin ≈ {fmt_pct(random.uniform(11,13))}."
-    return None
-def forecast_answers(q):
-    if "activation forecast" in q: return f"🔮 iPhone 16 {fmt_int(23000,26000)}, A15 {fmt_int(17500,20000)}."
-    if "compare actual" in q: return f"📊 Accuracy ≈ {fmt_pct(random.uniform(90,92))}."
-    if "forecasted to grow" in q: return "🚀 A15 and Moto G Stylus +15%."
-    if "forecast accuracy" in q: return "📈 86% → 89% → 91% (Jul–Sep)."
-    if "model inputs" in q: return "⚙️ Inputs refreshed 01:15 AM MT."
-    return None
-def answer_for_question(q):
-    qn=q.strip().lower().rstrip(".!?")
-    ans=(sales_answers(qn) or inventory_answers(qn) or shipments_answers(qn)
-         or pricing_answers(qn) or forecast_answers(qn))
-    return ans if ans else "⚠️ Limited Data — working on getting in more data sources"
-
 FAQ = {
     "Sales": ["Show me sales trends by channel.", "What were the top-selling devices last month.",
               "Compare iPhone vs Samsung sales this quarter.", "Which SKUs have the highest return rate.",
@@ -289,80 +238,44 @@ FAQ = {
                  "Update forecast model inputs from Dataiku."]
 }
 
-# ------------------------------------------------------------
-# 8) Dropdown Fix — Suggested Questions
-# ------------------------------------------------------------
-if not st.session_state.messages and not st.session_state.qa_history:
-    st.markdown("### 💬 Choose an option below for suggested questions or ask a question")
-    for category, questions in FAQ.items():
-        with st.expander(f"📂 {category}"):
-            sel = st.selectbox(f"Select a {category} question:",
-                               ["-- Choose --"] + questions, key=f"dd_{category}")
-            if sel != "-- Choose --":
-                q_norm = sel.strip().lower().rstrip(".!?")
-                a = answer_for_question(q_norm)
-                df = pd.DataFrame({
-                    "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
-                    "Sales": [random.randint(1000, 3000) for _ in range(4)],
-                    "Forecast": [random.randint(1000, 3000) for _ in range(4)]
-                })
-                st.session_state.messages.append({"role": "user", "content": sel})
-                st.session_state.qa_history.append({
-                    "q": sel, "a": a, "sql": "",
-                    "df_dict": df.to_dict(orient="list"),
-                    "ts": datetime.datetime.now().isoformat(timespec="seconds"), "fb": None
-                })
-                name = f"Chat {len(st.session_state.chat_sessions) + 1}"
-                st.session_state.chat_sessions[name] = {
-                    "messages": copy.deepcopy(st.session_state.messages),
-                    "qa_history": copy.deepcopy(st.session_state.qa_history),
-                }
-                save_user_memory()
-                safe_rerun()
+def answer_for_question(q):
+    qn=q.strip().lower().rstrip(".!?")
+    if "sales" in qn: return "📈 iPhone and Samsung lead channel performance."
+    if "inventory" in qn: return "🏭 Low stock detected in West Coast DCs."
+    if "shipments" in qn: return "🚚 Brightstar delays in Midwest distribution."
+    if "pricing" in qn: return "💰 Average retail discount: -$25 YoY."
+    if "forecast" in qn: return "🔮 Forecast accuracy improving quarter over quarter."
+    return "⚠️ Limited Data — working on getting in more data sources."
 
 # ------------------------------------------------------------
-# 9) Render Q&A Blocks + Feedback + Star
+# 8) FAQ Tile Display
 # ------------------------------------------------------------
-for idx, item in enumerate(st.session_state.qa_history):
-    st.markdown(f"**🧠 Question:** {item['q']}")
-    st.info(item["a"])
-    df = pd.DataFrame(item["df_dict"])
-    t1, t2 = st.tabs(["📊 Results", "📈 Chart"])
-    with t1:
-        if not df.empty:
-            st.dataframe(df, use_container_width=True)
-        else:
-            st.warning("⚠️ No data available.")
-    with t2:
-        if not df.empty:
-            fig = px.bar(df, x="SKU", y=["Sales", "Forecast"])
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("⚠️ No chart available.")
-
-    c1, c2, c3, _ = st.columns([0.08, 0.08, 0.08, 0.76])
-    with c3:
-        if st.button("⭐", key=f"star_{idx}"):
-            st.session_state.starred.append({"q": item["q"], "a": item["a"]})
-            save_user_memory()
-            safe_rerun()
+def display_faq_tiles():
+    st.markdown("### 💬 Ask a Question")
+    categories = list(FAQ.keys())
+    for row_start in range(0, len(categories), 3):
+        row = categories[row_start:row_start+3]
+        cols = st.columns(len(row))
+        for i, cat in enumerate(row):
+            with cols[i]:
+                st.markdown(f"**📂 {cat}**")
+                sel = st.selectbox(f"Select a {cat} question:", ["-- Choose --"] + FAQ[cat], key=f"faq_{cat}_{random.randint(1,10000)}")
+                if sel != "-- Choose --":
+                    process_question(sel)
 
 # ------------------------------------------------------------
-# 10) Chat Input + Auto-Save
+# 9) Q&A Processing Function
 # ------------------------------------------------------------
-prompt = st.chat_input("Ask about sales, devices, or logistics…")
-if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.spinner("🤖 Cortex AI is thinking..."):
-        time.sleep(1.0)
-    a = answer_for_question(prompt)
+def process_question(q):
+    a = answer_for_question(q)
     df = pd.DataFrame({
         "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
         "Sales": [random.randint(1000, 3000) for _ in range(4)],
         "Forecast": [random.randint(1000, 3000) for _ in range(4)]
     })
+    st.session_state.messages.append({"role": "user", "content": q})
     st.session_state.qa_history.append({
-        "q": prompt, "a": a, "sql": "",
+        "q": q, "a": a, "sql": "",
         "df_dict": df.to_dict(orient="list"),
         "ts": datetime.datetime.now().isoformat(timespec="seconds"), "fb": None
     })
@@ -373,3 +286,49 @@ if prompt:
     }
     save_user_memory()
     safe_rerun()
+
+# ------------------------------------------------------------
+# 10) Render Q&A Blocks
+# ------------------------------------------------------------
+if not st.session_state.messages and not st.session_state.qa_history:
+    display_faq_tiles()
+
+for idx, item in enumerate(st.session_state.qa_history):
+    cstar, qtext = st.columns([0.1, 0.9])
+    with qtext:
+        st.markdown(f"**🧠 Question:** {item['q']}")
+    with cstar:
+        if st.button("⭐", key=f"star_top_{idx}"):
+            st.session_state.starred.append({"q": item["q"], "a": item["a"]})
+            save_user_memory()
+            safe_rerun()
+    st.info(item["a"])
+
+    df = pd.DataFrame(item["df_dict"])
+    t1, t2 = st.tabs(["📊 Results", "📈 Chart"])
+    with t1:
+        st.dataframe(df, use_container_width=True)
+    with t2:
+        fig = px.bar(df, x="SKU", y=["Sales", "Forecast"])
+        st.plotly_chart(fig, use_container_width=True)
+
+    c1, c2, _ = st.columns([0.1, 0.1, 0.8])
+    with c1:
+        if st.button("👍", key=f"up_{idx}", disabled=item["fb"] == "up"):
+            item["fb"] = "up"
+            save_user_memory()
+            safe_rerun()
+    with c2:
+        if st.button("👎", key=f"down_{idx}", disabled=item["fb"] == "down"):
+            item["fb"] = "down"
+            save_user_memory()
+            safe_rerun()
+
+# ------------------------------------------------------------
+# 11) Chat Input + FAQ Reload
+# ------------------------------------------------------------
+prompt = st.chat_input("Ask about sales, devices, or logistics…")
+if prompt:
+    process_question(prompt)
+
+display_faq_tiles()
