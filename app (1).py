@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v6.4 — Final Production Build (Boost Orange Theme)
+# Wireless Cortex AI v6.4.2 — Boost Orange (Stable & Interactive)
 # ------------------------------------------------------------
 import streamlit as st
 import time, random, datetime, copy, json
@@ -32,10 +32,7 @@ def _get_gspread_client():
             svc = json.loads(st.secrets["google_service_account_json"])
         if not svc:
             return None
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive",
-        ]
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_info(svc, scopes=scopes)
         return gspread.authorize(creds)
     except Exception:
@@ -65,7 +62,8 @@ defaults = {
     "messages": [],
     "qa_history": [],
     "chat_sessions": {},
-    "starred": []
+    "starred": [],
+    "last_question": None,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -112,6 +110,19 @@ h1,h2,h3,h4,h5,h6 {{
     text-align:right;
     margin-top:-15px;
     margin-bottom:10px;
+}}
+.sidebar-btn {{
+    display:block;
+    width:100%;
+    border:none;
+    background:none;
+    color:#FF6600;
+    text-align:left;
+    font-weight:600;
+    cursor:pointer;
+}}
+.sidebar-btn:hover {{
+    color:#000000;
 }}
 </style>
 """,
@@ -172,14 +183,25 @@ with st.sidebar:
     else:
         st.caption("No previous chats yet.")
     st.markdown("---")
+
     with st.expander("⭐ Starred Q&As", expanded=False):
         if st.session_state.starred:
-            for s in st.session_state.starred:
-                st.markdown(f"**{s['q']}**  \n> {s['a']}")
+            for idx, s in enumerate(st.session_state.starred):
+                if st.button(f"{s['q']}", key=f"starred_{idx}", help="Click to view this Q&A"):
+                    st.session_state.qa_history.append({
+                        "q": s["q"], "a": s["a"],
+                        "df_dict": {"SKU": ["A15", "A16", "iPhone 16", "Moto G"],
+                                    "Sales": [random.randint(1000, 3000) for _ in range(4)],
+                                    "Forecast": [random.randint(1000, 3000) for _ in range(4)]},
+                        "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+                        "fb": None
+                    })
+                    safe_rerun()
         else:
             st.caption("No starred items yet.")
+
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v6.4 | Boost Orange | Persistent Memory**")
+    st.caption("**Wireless Cortex AI v6.4.2 | Boost Orange | Persistent Memory**")
 
 # ------------------------------------------------------------
 # HEADER + KPIs
@@ -257,6 +279,7 @@ def process_question(q):
         "messages": copy.deepcopy(st.session_state.messages),
         "qa_history": copy.deepcopy(st.session_state.qa_history)
     }
+    st.session_state.last_question = None  # reset after processing
     save_user_memory()
     safe_rerun()
 
@@ -292,16 +315,11 @@ if prompt:
     process_question(prompt)
 
 # ------------------------------------------------------------
-# ALWAYS SHOW FAQ (Fixed Dropdown Persistence)
+# ALWAYS SHOW FAQ — FIXED MULTI-SELECTION
 # ------------------------------------------------------------
-st.markdown("### 💬 Select a question from dropdown or ask a question in the chat below.")
+st.markdown(f"### <span style='color:{accent};'>💬 Select a question from dropdown or ask a question in the chat below.</span>", unsafe_allow_html=True)
 categories = list(FAQ.keys())
 cols = st.columns(len(categories))
-
-# Initialize persistent state variable
-if "last_question" not in st.session_state:
-    st.session_state.last_question = None
-
 for i, cat in enumerate(categories):
     with cols[i]:
         st.markdown(f"<div class='faq-card'><b>{cat}</b>", unsafe_allow_html=True)
@@ -310,4 +328,3 @@ for i, cat in enumerate(categories):
         if sel != "-- Choose --" and sel != st.session_state.last_question:
             st.session_state.last_question = sel
             process_question(sel)
-
