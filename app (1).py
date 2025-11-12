@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v6.4.2 — Boost Orange (Stable & Interactive)
+# Wireless Cortex AI v6.4.6 — Boost Orange (Final Production Stable)
 # ------------------------------------------------------------
 import streamlit as st
 import time, random, datetime, copy, json
@@ -63,7 +63,8 @@ defaults = {
     "qa_history": [],
     "chat_sessions": {},
     "starred": [],
-    "last_question": None,
+    "active_chat": None,
+    "pending_reset": None,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -105,24 +106,6 @@ h1,h2,h3,h4,h5,h6 {{
     transform:scale(1.03);
     box-shadow:0 4px 12px rgba(255,102,0,0.4);
     border:1px solid {accent};
-}}
-.star-btn {{
-    text-align:right;
-    margin-top:-15px;
-    margin-bottom:10px;
-}}
-.sidebar-btn {{
-    display:block;
-    width:100%;
-    border:none;
-    background:none;
-    color:#FF6600;
-    text-align:left;
-    font-weight:600;
-    cursor:pointer;
-}}
-.sidebar-btn:hover {{
-    color:#000000;
 }}
 </style>
 """,
@@ -167,6 +150,12 @@ def save_user_memory():
 load_user_memory()
 
 # ------------------------------------------------------------
+# CHAT MANAGEMENT
+# ------------------------------------------------------------
+if not st.session_state.active_chat:
+    st.session_state.active_chat = f"Chat {len(st.session_state.chat_sessions) + 1}"
+
+# ------------------------------------------------------------
 # SIDEBAR
 # ------------------------------------------------------------
 with st.sidebar:
@@ -201,14 +190,12 @@ with st.sidebar:
             st.caption("No starred items yet.")
 
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v6.4.2 | Boost Orange | Persistent Memory**")
+    st.caption("**Wireless Cortex AI v6.4.6 | Boost Orange | Persistent Memory**")
 
 # ------------------------------------------------------------
 # HEADER + KPIs
 # ------------------------------------------------------------
-info_link = (
-    "https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/edit?gid=0#gid=0"
-)
+info_link = "https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/edit?gid=0#gid=0"
 col_title, col_info = st.columns([0.92, 0.08])
 with col_title:
     st.markdown(
@@ -217,8 +204,7 @@ with col_title:
         unsafe_allow_html=True,
     )
 with col_info:
-    st.markdown(f"<a href='{info_link}' target='_blank' title='Click for more Information' class='info-icon'>ℹ️</a>",
-                unsafe_allow_html=True)
+    st.markdown(f"<a href='{info_link}' target='_blank' title='Click for more Information' class='info-icon'>ℹ️</a>", unsafe_allow_html=True)
 
 cols = st.columns(6)
 metrics = [
@@ -262,9 +248,6 @@ def answer_for_question(q):
 # ------------------------------------------------------------
 # QUESTION HANDLER
 # ------------------------------------------------------------
-# ------------------------------------------------------------
-# QUESTION HANDLER — no forced rerun
-# ------------------------------------------------------------
 def process_question(q):
     a = answer_for_question(q)
     df = pd.DataFrame({
@@ -273,24 +256,19 @@ def process_question(q):
         "Forecast": [random.randint(1000, 3000) for _ in range(4)]
     })
 
-    # append the new Q&A
     st.session_state.messages.append({"role": "user", "content": q})
     st.session_state.qa_history.append({
-        "q": q,
-        "a": a,
-        "df_dict": df.to_dict(orient="list"),
+        "q": q, "a": a, "df_dict": df.to_dict(orient="list"),
         "ts": datetime.datetime.now().isoformat(timespec="seconds"),
         "fb": None
     })
 
-    # update chat memory (no rerun needed)
-    name = f"Chat {len(st.session_state.chat_sessions) + 1}"
-    st.session_state.chat_sessions[name] = {
+    # Save only under active chat
+    st.session_state.chat_sessions[st.session_state.active_chat] = {
         "messages": copy.deepcopy(st.session_state.messages),
-        "qa_history": copy.deepcopy(st.session_state.qa_history),
+        "qa_history": copy.deepcopy(st.session_state.qa_history)
     }
     save_user_memory()
-
 
 # ------------------------------------------------------------
 # Q&A DISPLAY
@@ -298,7 +276,7 @@ def process_question(q):
 for idx, item in enumerate(st.session_state.qa_history):
     cstar, qtext = st.columns([0.1, 0.9])
     with qtext:
-        st.markdown(f"**🧠 Question:** {item['q']}")
+        st.markdown(f"**🧠 Question:** {item['q']}**")
     with cstar:
         if st.button("⭐", key=f"star_top_{idx}"):
             st.session_state.starred.append({"q": item["q"], "a": item["a"]})
@@ -324,20 +302,19 @@ if prompt:
     process_question(prompt)
 
 # ------------------------------------------------------------
-# ALWAYS SHOW FAQ — instant answer + auto-reset (v6.4.5)
+# ALWAYS SHOW FAQ — instant answer + delayed reset
 # ------------------------------------------------------------
 st.markdown(
     f"### <span style='color:{accent};'>💬 Select a question from dropdown or ask a question in the chat below.</span>",
     unsafe_allow_html=True
 )
 
-# Callback that fires immediately when a dropdown value changes
 def on_faq_change(key):
     sel = st.session_state.get(key)
     if sel and sel != "-- Choose --":
         process_question(sel)
-        # reset the dropdown back to default AFTER processing
-        st.session_state[key] = "-- Choose --"
+        # mark dropdown for reset after next render
+        st.session_state.pending_reset = key
 
 categories = list(FAQ.keys())
 cols = st.columns(len(categories))
@@ -348,8 +325,14 @@ for i, cat in enumerate(categories):
         st.selectbox(
             "",
             ["-- Choose --"] + FAQ[cat],
-            key=f"faq_{cat}",                  # stable key per category
+            key=f"faq_{cat}",
             on_change=on_faq_change,
-            args=(f"faq_{cat}",),              # pass the key to callback
+            args=(f"faq_{cat}",),
         )
         st.markdown("</div>", unsafe_allow_html=True)
+
+# Reset dropdown after answer is shown
+if st.session_state.pending_reset:
+    key = st.session_state.pending_reset
+    st.session_state[key] = "-- Choose --"
+    st.session_state.pending_reset = None
