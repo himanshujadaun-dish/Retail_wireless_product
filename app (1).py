@@ -292,15 +292,22 @@ if prompt:
     process_question(prompt)
 
 # ------------------------------------------------------------
-# ALWAYS SHOW FAQ
+# ALWAYS SHOW FAQ (Fixed Dropdown Persistence)
 # ------------------------------------------------------------
 st.markdown("### 💬 Select a question from dropdown or ask a question in the chat below.")
 categories = list(FAQ.keys())
 cols = st.columns(len(categories))
+
+# Initialize persistent state variable
+if "last_question" not in st.session_state:
+    st.session_state.last_question = None
+
 for i, cat in enumerate(categories):
     with cols[i]:
         st.markdown(f"<div class='faq-card'><b>{cat}</b>", unsafe_allow_html=True)
-        sel = st.selectbox("", ["-- Choose --"] + FAQ[cat], key=f"faq_{cat}_{random.randint(1,9999)}")
+        sel = st.selectbox("", ["-- Choose --"] + FAQ[cat], key=f"faq_{cat}")
         st.markdown("</div>", unsafe_allow_html=True)
-        if sel != "-- Choose --":
+        if sel != "-- Choose --" and sel != st.session_state.last_question:
+            st.session_state.last_question = sel
             process_question(sel)
+
