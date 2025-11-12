@@ -319,16 +319,35 @@ if prompt:
     process_question(prompt)
 
 # ------------------------------------------------------------
-# ALWAYS SHOW FAQ — FIXED MULTI-SELECTION
+# ALWAYS SHOW FAQ — FIXED FOR INSTANT ANSWERS (v6.4.3)
 # ------------------------------------------------------------
-st.markdown(f"### <span style='color:{accent};'>💬 Select a question from dropdown or ask a question in the chat below.</span>", unsafe_allow_html=True)
+st.markdown(
+    f"### <span style='color:{accent};'>💬 Select a question from dropdown or ask a question in the chat below.</span>",
+    unsafe_allow_html=True
+)
+
 categories = list(FAQ.keys())
 cols = st.columns(len(categories))
+
+# Remember last dropdown selection
+if "pending_question" not in st.session_state:
+    st.session_state.pending_question = None
+
+# render dropdowns
 for i, cat in enumerate(categories):
     with cols[i]:
         st.markdown(f"<div class='faq-card'><b>{cat}</b>", unsafe_allow_html=True)
         sel = st.selectbox("", ["-- Choose --"] + FAQ[cat], key=f"faq_{cat}")
         st.markdown("</div>", unsafe_allow_html=True)
-        if sel != "-- Choose --" and sel != st.session_state.last_question:
-            st.session_state.last_question = sel
-            process_question(sel)
+        # store selection without triggering rerun logic here
+        if sel != "-- Choose --":
+            st.session_state.pending_question = sel
+
+# after layout render, process selection if new
+if st.session_state.pending_question and (
+    not st.session_state.last_question
+    or st.session_state.pending_question != st.session_state.last_question
+):
+    process_question(st.session_state.pending_question)
+    st.session_state.last_question = st.session_state.pending_question
+    st.session_state.pending_question = None
