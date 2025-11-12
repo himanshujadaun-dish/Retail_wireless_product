@@ -1,8 +1,8 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v6.0 — Enhanced (6 KPIs + Info + Memory + Starred)
+# Wireless Cortex AI v6.1 — Persistent Memory + 6 KPIs + Info + Starred + Bugfix
 # ------------------------------------------------------------
 import streamlit as st
-import time, random, datetime, copy
+import time, random, datetime, copy, json
 import pandas as pd
 import plotly.express as px
 from io import StringIO
@@ -12,14 +12,16 @@ from io import StringIO
 # ------------------------------------------------------------
 def safe_rerun():
     try:
-        st.rerun()
+        st.experimental_rerun()
     except Exception:
         pass
 
 # ------------------------------------------------------------
-# Google Sheets Logging
+# Google Sheets Setup
 # ------------------------------------------------------------
 USE_SHEETS = True
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit#gid=0"
+
 def _get_gspread_client():
     try:
         import gspread
@@ -28,7 +30,6 @@ def _get_gspread_client():
         if "gcp_service_account" in st.secrets:
             svc = st.secrets["gcp_service_account"]
         elif "google_service_account_json" in st.secrets:
-            import json
             svc = json.loads(st.secrets["google_service_account_json"])
         if not svc:
             return None
@@ -38,23 +39,21 @@ def _get_gspread_client():
         ]
         creds = Credentials.from_service_account_info(svc, scopes=scopes)
         return gspread.authorize(creds)
-    except Exception:
+    except Exception as e:
+        st.error(f"Error setting up Sheets client: {e}")
         return None
 
-
-def log_feedback_to_sheet(sheet_url, row):
-    if not USE_SHEETS:
-        return False
+def _open_or_create_worksheet(client, sheet_url, tab_name):
     try:
-        client = _get_gspread_client()
-        if not client:
-            return False
         sh = client.open_by_url(sheet_url)
-        ws = sh.sheet1
-        ws.append_row(row, value_input_option="USER_ENTERED")
-        return True
-    except Exception:
-        return False
+        try:
+            ws = sh.worksheet(tab_name)
+        except:
+            ws = sh.add_worksheet(title=tab_name, rows="1000", cols="10")
+        return ws
+    except Exception as e:
+        st.error(f"Could not access worksheet: {e}")
+        return None
 
 # ------------------------------------------------------------
 # 1) PAGE CONFIG
@@ -65,11 +64,11 @@ st.set_page_config(page_title="Wireless Cortex AI", page_icon="📶", layout="wi
 # 2) SESSION STATE
 # ------------------------------------------------------------
 defaults = {
+    "user_email": "guest_user@corp.com",
     "messages": [],
     "qa_history": [],
     "chat_sessions": {},
-    "local_feedback_cache": [],
-    "starred": [],
+    "starred": []
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -90,27 +89,6 @@ st.markdown(
 h1,h2,h3,h4,h5,h6 {{
     color:{accent};
 }}
-.chat-bubble-user {{
-    background-color:{card};
-    color:{text};
-    padding:10px 14px;
-    border-radius:15px;
-    margin:8px 0;
-    max-width:80%;
-    box-shadow:0 2px 6px rgba(0,0,0,.25);
-}}
-.chat-bubble-ai {{
-    background-color:{ai};
-    color:#000000;
-    padding:10px 14px;
-    border-radius:15px;
-    margin:8px 0;
-    max-width:80%;
-    box-shadow:0 2px 6px rgba(0,0,0,.15);
-}}
-#bottom_anchor {{
-    height: 1px;
-}}
 .info-icon {{
     color:{accent};
     text-decoration:none;
@@ -126,12 +104,71 @@ h1,h2,h3,h4,h5,h6 {{
 )
 
 # ------------------------------------------------------------
-# 4) SIDEBAR (Simplified — Memory + Starred)
+# 4) Persistent Memory (Load from Google Sheets)
+# ------------------------------------------------------------
+def load_user_memory():
+    try:
+        client = _get_gspread_client()
+        if not client:
+            return
+        ws_chat = _open_or_create_worksheet(client, SHEET_URL, "chat_sessions")
+        ws_star = _open_or_create_worksheet(client, SHEET_URL, "starred_questions")
+
+        # Load chat sessions
+        rows = ws_chat.get_all_records()
+        for row in rows:
+            if row.get("user") == st.session_state.user_email:
+                st.session_state.chat_sessions[row["session_name"]] = json.loads(row["data"])
+
+        # Load starred
+        rows_star = ws_star.get_all_records()
+        for row in rows_star:
+            if row.get("user") == st.session_state.user_email:
+                st.session_state.starred.append({"q": row["question"], "a": row["answer"]})
+    except Exception as e:
+        st.warning(f"⚠️ Memory load failed: {e}")
+
+def save_user_memory():
+    try:
+        client = _get_gspread_client()
+        if not client:
+            return
+        ws_chat = _open_or_create_worksheet(client, SHEET_URL, "chat_sessions")
+        ws_star = _open_or_create_worksheet(client, SHEET_URL, "starred_questions")
+
+        # Clear user rows first
+        data = ws_chat.get_all_records()
+        keep = [d for d in data if d.get("user") != st.session_state.user_email]
+        ws_chat.clear()
+        ws_chat.append_row(["user", "session_name", "data"])
+        for row in keep:
+            ws_chat.append_row([row["user"], row["session_name"], row["data"]])
+        for name, session in st.session_state.chat_sessions.items():
+            ws_chat.append_row([
+                st.session_state.user_email, name, json.dumps(session)
+            ])
+
+        data2 = ws_star.get_all_records()
+        keep2 = [d for d in data2 if d.get("user") != st.session_state.user_email]
+        ws_star.clear()
+        ws_star.append_row(["user", "question", "answer"])
+        for row in keep2:
+            ws_star.append_row([row["user"], row["question"], row["answer"]])
+        for star in st.session_state.starred:
+            ws_star.append_row([
+                st.session_state.user_email, star["q"], star["a"]
+            ])
+    except Exception as e:
+        st.warning(f"⚠️ Memory save failed: {e}")
+
+load_user_memory()
+
+# ------------------------------------------------------------
+# 5) SIDEBAR (Simplified — Memory + Starred)
 # ------------------------------------------------------------
 with st.sidebar:
     st.title("⚙️ Cortex Controls")
 
-    # ---- Previous Chats ----
     st.subheader("💬 Previous Chats")
     session_keys = list(st.session_state.chat_sessions.keys())
     if session_keys:
@@ -145,26 +182,21 @@ with st.sidebar:
         st.caption("No previous chats yet.")
 
     st.markdown("---")
-
-    # ---- Starred Questions ----
     st.subheader("⭐ Starred Q&As")
     if st.session_state.starred:
         for star in st.session_state.starred:
             st.markdown(f"**{star['q']}**  \n> {star['a']}")
     else:
         st.caption("No starred items yet.")
-
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v6.0 | 6 KPIs + Info + Starred + Memory**")
+    st.caption("**Wireless Cortex AI v6.1 | Persistent + Bugfix**")
 
 # ------------------------------------------------------------
-# 5) HEADER + INFO ICON + 6 KPIs
+# 6) HEADER + INFO ICON + 6 KPIs
 # ------------------------------------------------------------
 info_link = (
-    "https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/"
-    "edit?gid=0#gid=0"
+    "https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/edit?gid=0#gid=0"
 )
-
 col_title, col_info = st.columns([0.92, 0.08])
 with col_title:
     st.markdown(
@@ -178,22 +210,14 @@ with col_info:
         unsafe_allow_html=True,
     )
 
-# --- KPIs (6 metrics in one row)
 kpi_names = [
-    "📈 Forecast Accuracy",
-    "📦 Active SKUs",
-    "🔋 Activations (7d)",
-    "💰 Revenue Growth",
-    "📊 Channel Uplift",
-    "📆 Forecast Horizon",
+    "📈 Forecast Accuracy", "📦 Active SKUs", "🔋 Activations (7d)",
+    "💰 Revenue Growth", "📊 Channel Uplift", "📆 Forecast Horizon"
 ]
 kpi_values = [
-    f"{random.uniform(88,95):.1f}%",
-    f"{random.randint(2800,4200):,}",
-    f"{random.randint(23000,38000):,}",
-    f"{random.uniform(5,12):.1f}%",
-    f"{random.uniform(3,9):.1f}%",
-    f"{random.randint(30,90)} days",
+    f"{random.uniform(88,95):.1f}%", f"{random.randint(2800,4200):,}",
+    f"{random.randint(23000,38000):,}", f"{random.uniform(5,12):.1f}%",
+    f"{random.uniform(3,9):.1f}%", f"{random.randint(30,90)} days"
 ]
 cols = st.columns(6)
 for i in range(6):
@@ -201,7 +225,7 @@ for i in range(6):
         st.metric(kpi_names[i], kpi_values[i])
 
 # ------------------------------------------------------------
-# 6) Q&A Logic
+# 7) Q&A Logic
 # ------------------------------------------------------------
 def fmt_pct(x): return f"{x:.1f}%"
 def fmt_int(a,b): return f"{random.randint(a,b):,}"
@@ -247,56 +271,57 @@ def answer_for_question(q):
          or pricing_answers(qn) or forecast_answers(qn))
     return ans if ans else "⚠️ Limited Data — working on getting in more data sources"
 
-FAQ={
-    "Sales":["Show me sales trends by channel.","What were the top-selling devices last month.",
-             "Compare iPhone vs Samsung sales this quarter.","Which SKUs have the highest return rate.",
-             "What are the sales forecasts for next month."],
-    "Inventory":["Which SKUs are low in stock.","Show inventory aging by warehouse.",
-                 "How many iPhone 16 units are in Denver DC.","List SKUs with overstock conditions.",
-                 "What's the daily inventory update feed."],
-    "Shipments":["Show delayed shipments by DDP.","How many units shipped this week.",
-                 "Which SKUs are pending shipment confirmation.","Track shipment status for iPhone 16 Pro Max.",
-                 "List DDPs with recurring delays."],
-    "Pricing":["Show current device pricing by channel.","Which SKUs had price drops this week.",
-               "Compare MSRP vs promo prices.","Show competitor pricing insights.",
-               "What’s the margin for iPhone 16 Pro Max."],
-    "Forecast":["Show activation forecast by SKU.","Compare actual vs forecast for Q3.",
-                "Which SKUs are forecasted to grow fastest.","Show forecast accuracy trend by month.",
-                "Update forecast model inputs from Dataiku."]
+FAQ = {
+    "Sales": ["Show me sales trends by channel.", "What were the top-selling devices last month.",
+              "Compare iPhone vs Samsung sales this quarter.", "Which SKUs have the highest return rate.",
+              "What are the sales forecasts for next month."],
+    "Inventory": ["Which SKUs are low in stock.", "Show inventory aging by warehouse.",
+                  "How many iPhone 16 units are in Denver DC.", "List SKUs with overstock conditions.",
+                  "What's the daily inventory update feed."],
+    "Shipments": ["Show delayed shipments by DDP.", "How many units shipped this week.",
+                  "Which SKUs are pending shipment confirmation.", "Track shipment status for iPhone 16 Pro Max.",
+                  "List DDPs with recurring delays."],
+    "Pricing": ["Show current device pricing by channel.", "Which SKUs had price drops this week.",
+                "Compare MSRP vs promo prices.", "Show competitor pricing insights.",
+                "What’s the margin for iPhone 16 Pro Max."],
+    "Forecast": ["Show activation forecast by SKU.", "Compare actual vs forecast for Q3.",
+                 "Which SKUs are forecasted to grow fastest.", "Show forecast accuracy trend by month.",
+                 "Update forecast model inputs from Dataiku."]
 }
 
-SHEET_URL="https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit?gid=0#gid=0"
-
 # ------------------------------------------------------------
-# 7) Suggested Questions + Q&A Display
+# 8) Dropdown Fix — Suggested Questions
 # ------------------------------------------------------------
 if not st.session_state.messages and not st.session_state.qa_history:
     st.markdown("### 💬 Choose an option below for suggested questions or ask a question")
     for category, questions in FAQ.items():
         with st.expander(f"📂 {category}"):
-            sel=st.selectbox(f"Select a {category} question:",
-                             ["-- Choose --"]+questions,key=f"dd_{category}")
-            if sel!="-- Choose --":
-                q_norm=sel.strip().lower().rstrip(".!?")
-                st.session_state.messages.append({"role":"user","content":sel})
-                a=answer_for_question(q_norm)
-                sql=f"SELECT * FROM demo_table WHERE topic='{sel[:60]}';"
-                df=pd.DataFrame({"SKU":["A15","A16","iPhone 16","Moto G"],
-                                 "Sales":[random.randint(1000,3000) for _ in range(4)],
-                                 "Forecast":[random.randint(1000,3000) for _ in range(4)]})
-                st.session_state.qa_history.append({"q":sel,"a":a,"sql":sql,
-                    "df_dict":df.to_dict(orient="list"),
-                    "ts":datetime.datetime.now().isoformat(timespec="seconds"),"fb":None})
-                # Save session snapshot
+            sel = st.selectbox(f"Select a {category} question:",
+                               ["-- Choose --"] + questions, key=f"dd_{category}")
+            if sel != "-- Choose --":
+                q_norm = sel.strip().lower().rstrip(".!?")
+                a = answer_for_question(q_norm)
+                df = pd.DataFrame({
+                    "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
+                    "Sales": [random.randint(1000, 3000) for _ in range(4)],
+                    "Forecast": [random.randint(1000, 3000) for _ in range(4)]
+                })
+                st.session_state.messages.append({"role": "user", "content": sel})
+                st.session_state.qa_history.append({
+                    "q": sel, "a": a, "sql": "",
+                    "df_dict": df.to_dict(orient="list"),
+                    "ts": datetime.datetime.now().isoformat(timespec="seconds"), "fb": None
+                })
                 name = f"Chat {len(st.session_state.chat_sessions) + 1}"
                 st.session_state.chat_sessions[name] = {
                     "messages": copy.deepcopy(st.session_state.messages),
                     "qa_history": copy.deepcopy(st.session_state.qa_history),
                 }
+                save_user_memory()
                 safe_rerun()
 
 # ------------------------------------------------------------
-# 8) Render Q&A Blocks + Feedback + Chart + Star
+# 9) Render Q&A Blocks + Feedback + Star
 # ------------------------------------------------------------
 for idx, item in enumerate(st.session_state.qa_history):
     st.markdown(f"**🧠 Question:** {item['q']}")
@@ -307,94 +332,44 @@ for idx, item in enumerate(st.session_state.qa_history):
         if not df.empty:
             st.dataframe(df, use_container_width=True)
         else:
-            st.warning("⚠️ No data available for this query.")
+            st.warning("⚠️ No data available.")
     with t2:
-        if df.empty:
-            st.warning("⚠️ No chart available — no data found for this query.")
-        else:
-            chart_type = st.selectbox(
-                "Chart Type", ["Bar", "Line", "Scatter", "Area", "Pie"], key=f"chart_{idx}"
-            )
-            if chart_type == "Bar":
-                fig = px.bar(df, x="SKU", y=["Sales", "Forecast"])
-            elif chart_type == "Line":
-                fig = px.line(df, x="SKU", y=["Sales", "Forecast"])
-            elif chart_type == "Scatter":
-                fig = px.scatter(df, x="SKU", y="Sales", size="Forecast")
-            elif chart_type == "Area":
-                fig = px.area(df, x="SKU", y=["Sales", "Forecast"])
-            else:
-                fig = px.pie(df, names="SKU", values="Sales")
+        if not df.empty:
+            fig = px.bar(df, x="SKU", y=["Sales", "Forecast"])
             st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("⚠️ No chart available.")
 
     c1, c2, c3, _ = st.columns([0.08, 0.08, 0.08, 0.76])
-    with c1:
-        if st.button("👍", key=f"up_{idx}", disabled=item["fb"] == "up"):
-            item["fb"] = "up"
-            log_feedback_to_sheet(
-                SHEET_URL,
-                [
-                    datetime.datetime.now().isoformat(timespec="seconds"),
-                    item["q"],
-                    item["a"][:120],
-                    "up",
-                ],
-            )
-            safe_rerun()
-    with c2:
-        if st.button("👎", key=f"down_{idx}", disabled=item["fb"] == "down"):
-            item["fb"] = "down"
-            log_feedback_to_sheet(
-                SHEET_URL,
-                [
-                    datetime.datetime.now().isoformat(timespec="seconds"),
-                    item["q"],
-                    item["a"][:120],
-                    "down",
-                ],
-            )
-            safe_rerun()
     with c3:
         if st.button("⭐", key=f"star_{idx}"):
             st.session_state.starred.append({"q": item["q"], "a": item["a"]})
+            save_user_memory()
             safe_rerun()
 
-# Invisible scroll anchor
-st.markdown("<div id='bottom_anchor'></div>", unsafe_allow_html=True)
-
 # ------------------------------------------------------------
-# 9) Chat Input — Ask new question + Auto-Save
+# 10) Chat Input + Auto-Save
 # ------------------------------------------------------------
 prompt = st.chat_input("Ask about sales, devices, or logistics…")
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.spinner("🤖 Cortex AI is thinking..."):
         time.sleep(1.0)
-
     a = answer_for_question(prompt)
-    df = pd.DataFrame(
-        {"SKU": ["A15", "A16", "iPhone 16", "Moto G"],
-         "Sales": [random.randint(1000,3000) for _ in range(4)],
-         "Forecast": [random.randint(1000,3000) for _ in range(4)]})
-    st.session_state.qa_history.append(
-        {"q": prompt, "a": a, "sql": "", "df_dict": df.to_dict(orient="list"),
-         "ts": datetime.datetime.now().isoformat(timespec="seconds"), "fb": None}
-    )
-
-    # Save current session
+    df = pd.DataFrame({
+        "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
+        "Sales": [random.randint(1000, 3000) for _ in range(4)],
+        "Forecast": [random.randint(1000, 3000) for _ in range(4)]
+    })
+    st.session_state.qa_history.append({
+        "q": prompt, "a": a, "sql": "",
+        "df_dict": df.to_dict(orient="list"),
+        "ts": datetime.datetime.now().isoformat(timespec="seconds"), "fb": None
+    })
     name = f"Chat {len(st.session_state.chat_sessions) + 1}"
     st.session_state.chat_sessions[name] = {
         "messages": copy.deepcopy(st.session_state.messages),
         "qa_history": copy.deepcopy(st.session_state.qa_history),
     }
+    save_user_memory()
     safe_rerun()
-
-# Auto-scroll
-st.markdown(
-    """
-<script>
-window.scrollTo(0, document.body.scrollHeight);
-</script>
-""",
-    unsafe_allow_html=True,
-)
