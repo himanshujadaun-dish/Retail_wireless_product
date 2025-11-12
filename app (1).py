@@ -262,6 +262,9 @@ def answer_for_question(q):
 # ------------------------------------------------------------
 # QUESTION HANDLER
 # ------------------------------------------------------------
+# ------------------------------------------------------------
+# QUESTION HANDLER — no forced rerun
+# ------------------------------------------------------------
 def process_question(q):
     a = answer_for_question(q)
     df = pd.DataFrame({
@@ -269,22 +272,24 @@ def process_question(q):
         "Sales": [random.randint(1000, 3000) for _ in range(4)],
         "Forecast": [random.randint(1000, 3000) for _ in range(4)]
     })
-    # append new QA
+
+    # append the new Q&A
     st.session_state.messages.append({"role": "user", "content": q})
     st.session_state.qa_history.append({
-        "q": q, "a": a, "df_dict": df.to_dict(orient="list"),
+        "q": q,
+        "a": a,
+        "df_dict": df.to_dict(orient="list"),
         "ts": datetime.datetime.now().isoformat(timespec="seconds"),
         "fb": None
     })
-    # save chat
+
+    # update chat memory (no rerun needed)
     name = f"Chat {len(st.session_state.chat_sessions) + 1}"
     st.session_state.chat_sessions[name] = {
         "messages": copy.deepcopy(st.session_state.messages),
-        "qa_history": copy.deepcopy(st.session_state.qa_history)
+        "qa_history": copy.deepcopy(st.session_state.qa_history),
     }
     save_user_memory()
-    # don’t force rerun — let Streamlit render immediately
-    st.session_state.last_question = q
 
 
 # ------------------------------------------------------------
@@ -319,19 +324,19 @@ if prompt:
     process_question(prompt)
 
 # ------------------------------------------------------------
-# ALWAYS SHOW FAQ — FINAL VERSION (v6.4.5)
-# Instant answers + dropdown resets after each selection
+# ALWAYS SHOW FAQ — instant answer + auto-reset (v6.4.5)
 # ------------------------------------------------------------
 st.markdown(
     f"### <span style='color:{accent};'>💬 Select a question from dropdown or ask a question in the chat below.</span>",
     unsafe_allow_html=True
 )
 
+# Callback that fires immediately when a dropdown value changes
 def on_faq_change(key):
-    q = st.session_state[key]
-    if q and q != "-- Choose --":
-        process_question(q)
-        # reset dropdown back to default
+    sel = st.session_state.get(key)
+    if sel and sel != "-- Choose --":
+        process_question(sel)
+        # reset the dropdown back to default AFTER processing
         st.session_state[key] = "-- Choose --"
 
 categories = list(FAQ.keys())
@@ -343,8 +348,8 @@ for i, cat in enumerate(categories):
         st.selectbox(
             "",
             ["-- Choose --"] + FAQ[cat],
-            key=f"faq_{cat}",
+            key=f"faq_{cat}",                  # stable key per category
             on_change=on_faq_change,
-            args=(f"faq_{cat}",),
+            args=(f"faq_{cat}",),              # pass the key to callback
         )
         st.markdown("</div>", unsafe_allow_html=True)
