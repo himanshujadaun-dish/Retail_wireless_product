@@ -269,19 +269,23 @@ def process_question(q):
         "Sales": [random.randint(1000, 3000) for _ in range(4)],
         "Forecast": [random.randint(1000, 3000) for _ in range(4)]
     })
+    # append new QA
     st.session_state.messages.append({"role": "user", "content": q})
     st.session_state.qa_history.append({
         "q": q, "a": a, "df_dict": df.to_dict(orient="list"),
-        "ts": datetime.datetime.now().isoformat(timespec="seconds"), "fb": None
+        "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+        "fb": None
     })
+    # save chat
     name = f"Chat {len(st.session_state.chat_sessions) + 1}"
     st.session_state.chat_sessions[name] = {
         "messages": copy.deepcopy(st.session_state.messages),
         "qa_history": copy.deepcopy(st.session_state.qa_history)
     }
-    st.session_state.last_question = None  # reset after processing
     save_user_memory()
-    safe_rerun()
+    # don’t force rerun — let Streamlit render immediately
+    st.session_state.last_question = q
+
 
 # ------------------------------------------------------------
 # Q&A DISPLAY
