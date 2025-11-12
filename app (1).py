@@ -1,14 +1,13 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v6.2 — Star on Top + Sidebar Dropdown + Tiled FAQ + Persistent Memory
+# Wireless Cortex AI v6.3 — Final Polished Version
 # ------------------------------------------------------------
 import streamlit as st
 import time, random, datetime, copy, json
 import pandas as pd
 import plotly.express as px
-from io import StringIO
 
 # ------------------------------------------------------------
-# 0) Safe Rerun Wrapper
+# 0) Safe Rerun
 # ------------------------------------------------------------
 def safe_rerun():
     try:
@@ -33,10 +32,7 @@ def _get_gspread_client():
             svc = json.loads(st.secrets["google_service_account_json"])
         if not svc:
             return None
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive",
-        ]
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_info(svc, scopes=scopes)
         return gspread.authorize(creds)
     except Exception:
@@ -73,7 +69,7 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 # ------------------------------------------------------------
-# 3) THEME (Fixed Light Mode)
+# 3) THEME + CSS
 # ------------------------------------------------------------
 bg, text, card, accent, ai = "#F5F7FB", "#000000", "#FFFFFF", "#007BFF", "#E6F2FF"
 
@@ -96,6 +92,17 @@ h1,h2,h3,h4,h5,h6 {{
     cursor:pointer;
     opacity:0.7;
 }}
+.faq-card {{
+    background-color:#ffffff;
+    border-radius:15px;
+    box-shadow:0 2px 5px rgba(0,0,0,0.1);
+    padding:15px;
+    transition:all 0.2s ease-in-out;
+}}
+.faq-card:hover {{
+    transform:scale(1.03);
+    box-shadow:0 4px 10px rgba(0,0,0,0.15);
+}}
 .star-btn {{
     text-align:right;
     margin-top:-15px;
@@ -116,14 +123,10 @@ def load_user_memory():
             return
         ws_chat = _open_or_create_worksheet(client, SHEET_URL, "chat_sessions")
         ws_star = _open_or_create_worksheet(client, SHEET_URL, "starred_questions")
-
-        rows = ws_chat.get_all_records()
-        for row in rows:
+        for row in ws_chat.get_all_records():
             if row.get("user") == st.session_state.user_email:
                 st.session_state.chat_sessions[row["session_name"]] = json.loads(row["data"])
-
-        rows_star = ws_star.get_all_records()
-        for row in rows_star:
+        for row in ws_star.get_all_records():
             if row.get("user") == st.session_state.user_email:
                 st.session_state.starred.append({"q": row["question"], "a": row["answer"]})
     except:
@@ -136,59 +139,48 @@ def save_user_memory():
             return
         ws_chat = _open_or_create_worksheet(client, SHEET_URL, "chat_sessions")
         ws_star = _open_or_create_worksheet(client, SHEET_URL, "starred_questions")
-
-        ws_chat.clear()
-        ws_chat.append_row(["user", "session_name", "data"])
-        for name, session in st.session_state.chat_sessions.items():
-            ws_chat.append_row([
-                st.session_state.user_email, name, json.dumps(session)
-            ])
-
-        ws_star.clear()
-        ws_star.append_row(["user", "question", "answer"])
+        ws_chat.clear(); ws_chat.append_row(["user", "session_name", "data"])
+        for n, s in st.session_state.chat_sessions.items():
+            ws_chat.append_row([st.session_state.user_email, n, json.dumps(s)])
+        ws_star.clear(); ws_star.append_row(["user", "question", "answer"])
         for star in st.session_state.starred:
-            ws_star.append_row([
-                st.session_state.user_email, star["q"], star["a"]
-            ])
+            ws_star.append_row([st.session_state.user_email, star["q"], star["a"]])
     except:
         pass
 
 load_user_memory()
 
 # ------------------------------------------------------------
-# 5) SIDEBAR (Simplified — Memory + Collapsible Starred)
+# 5) SIDEBAR
 # ------------------------------------------------------------
 with st.sidebar:
     st.title("⚙️ Cortex Controls")
-
     st.subheader("💬 Previous Chats")
-    session_keys = list(st.session_state.chat_sessions.keys())
-    if session_keys:
-        chosen = st.selectbox("Select Previous Chat", session_keys, key="chat_radio")
-        if chosen:
-            saved = st.session_state.chat_sessions[chosen]
-            st.session_state.messages = copy.deepcopy(saved.get("messages", []))
-            st.session_state.qa_history = copy.deepcopy(saved.get("qa_history", []))
+    keys = list(st.session_state.chat_sessions.keys())
+    if keys:
+        choice = st.selectbox("Select Previous Chat", keys)
+        if choice:
+            saved = st.session_state.chat_sessions[choice]
+            st.session_state.messages = copy.deepcopy(saved["messages"])
+            st.session_state.qa_history = copy.deepcopy(saved["qa_history"])
             safe_rerun()
     else:
         st.caption("No previous chats yet.")
-
     st.markdown("---")
     with st.expander("⭐ Starred Q&As", expanded=False):
         if st.session_state.starred:
-            for star in st.session_state.starred:
-                st.markdown(f"**{star['q']}**  \n> {star['a']}")
+            for s in st.session_state.starred:
+                st.markdown(f"**{s['q']}**  \n> {s['a']}")
         else:
             st.caption("No starred items yet.")
-
     st.markdown("---")
-    st.caption("**Wireless Cortex AI v6.2 | Star + Tiled FAQ + Memory**")
+    st.caption("**Wireless Cortex AI v6.3 | Star + Animated FAQ + Memory**")
 
 # ------------------------------------------------------------
-# 6) HEADER + INFO ICON + 6 KPIs
+# 6) HEADER + KPIs
 # ------------------------------------------------------------
 info_link = (
-    "https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/edit?gid=0#gid=0"
+    "https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/edit#gid=0#gid=0"
 )
 col_title, col_info = st.columns([0.92, 0.08])
 with col_title:
@@ -198,73 +190,50 @@ with col_title:
         unsafe_allow_html=True,
     )
 with col_info:
-    st.markdown(
-        f"<a href='{info_link}' target='_blank' title='Click for more Information' class='info-icon'>ℹ️</a>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(f"<a href='{info_link}' target='_blank' title='Click for more Information' class='info-icon'>ℹ️</a>",
+                unsafe_allow_html=True)
 
-kpi_names = [
-    "📈 Forecast Accuracy", "📦 Active SKUs", "🔋 Activations (7d)",
-    "💰 Revenue Growth", "📊 Channel Uplift", "📆 Forecast Horizon"
-]
-kpi_values = [
-    f"{random.uniform(88,95):.1f}%", f"{random.randint(2800,4200):,}",
-    f"{random.randint(23000,38000):,}", f"{random.uniform(5,12):.1f}%",
-    f"{random.uniform(3,9):.1f}%", f"{random.randint(30,90)} days"
-]
 cols = st.columns(6)
-for i in range(6):
+metrics = [
+    ("📈 Forecast Accuracy", f"{random.uniform(88,95):.1f}%"),
+    ("📦 Active SKUs", f"{random.randint(2800,4200):,}"),
+    ("🔋 Activations (7d)", f"{random.randint(23000,38000):,}"),
+    ("💰 Revenue Growth", f"{random.uniform(5,12):.1f}%"),
+    ("📊 Channel Uplift", f"{random.uniform(3,9):.1f}%"),
+    ("📆 Forecast Horizon", f"{random.randint(30,90)} days")
+]
+for i, (k, v) in enumerate(metrics):
     with cols[i]:
-        st.metric(kpi_names[i], kpi_values[i])
+        st.metric(k, v)
 
 # ------------------------------------------------------------
-# 7) FAQ Data
+# 7) FAQ
 # ------------------------------------------------------------
 FAQ = {
-    "Sales": ["Show me sales trends by channel.", "What were the top-selling devices last month.",
-              "Compare iPhone vs Samsung sales this quarter.", "Which SKUs have the highest return rate.",
-              "What are the sales forecasts for next month."],
-    "Inventory": ["Which SKUs are low in stock.", "Show inventory aging by warehouse.",
-                  "How many iPhone 16 units are in Denver DC.", "List SKUs with overstock conditions.",
-                  "What's the daily inventory update feed."],
-    "Shipments": ["Show delayed shipments by DDP.", "How many units shipped this week.",
-                  "Which SKUs are pending shipment confirmation.", "Track shipment status for iPhone 16 Pro Max.",
-                  "List DDPs with recurring delays."],
-    "Pricing": ["Show current device pricing by channel.", "Which SKUs had price drops this week.",
-                "Compare MSRP vs promo prices.", "Show competitor pricing insights.",
-                "What’s the margin for iPhone 16 Pro Max."],
-    "Forecast": ["Show activation forecast by SKU.", "Compare actual vs forecast for Q3.",
-                 "Which SKUs are forecasted to grow fastest.", "Show forecast accuracy trend by month.",
-                 "Update forecast model inputs from Dataiku."]
+    "📊 Sales": ["Show me sales trends by channel.", "Top-selling devices last month.",
+                 "Compare iPhone vs Samsung sales.", "Which SKUs have the highest return rate.",
+                 "Sales forecast for next month."],
+    "🏭 Inventory": ["Which SKUs are low in stock.", "Show inventory aging by warehouse.",
+                    "How many iPhone 16 in Denver DC.", "List SKUs with overstock.", "Daily inventory update feed."],
+    "🚚 Shipments": ["Show delayed shipments by DDP.", "How many units shipped this week.",
+                     "Pending shipment confirmation.", "Track shipment for iPhone 16 Pro Max.", "Recurring delays by DDP."],
+    "💰 Pricing": ["Current device pricing by channel.", "Which SKUs had price drops this week.",
+                   "Compare MSRP vs promo prices.", "Competitor pricing insights.", "Margin for iPhone 16 Pro Max."],
+    "🔮 Forecast": ["Activation forecast by SKU.", "Compare actual vs forecast for Q3.",
+                    "Fastest growing SKUs.", "Forecast accuracy trend by month.", "Refresh forecast model inputs."]
 }
 
 def answer_for_question(q):
-    qn=q.strip().lower().rstrip(".!?")
-    if "sales" in qn: return "📈 iPhone and Samsung lead channel performance."
-    if "inventory" in qn: return "🏭 Low stock detected in West Coast DCs."
-    if "shipments" in qn: return "🚚 Brightstar delays in Midwest distribution."
-    if "pricing" in qn: return "💰 Average retail discount: -$25 YoY."
-    if "forecast" in qn: return "🔮 Forecast accuracy improving quarter over quarter."
+    qn = q.strip().lower()
+    if "sales" in qn: return "📈 Sales up 9% MoM — iPhone and Samsung leading."
+    if "inventory" in qn: return "🏭 Low stock in Denver DC; healthy in Dallas."
+    if "shipment" in qn: return "🚚 Brightstar delays impacting Midwest region."
+    if "pricing" in qn: return "💰 Price drops observed for A15 and Moto G."
+    if "forecast" in qn: return "🔮 Forecast accuracy improved to 91%."
     return "⚠️ Limited Data — working on getting in more data sources."
 
 # ------------------------------------------------------------
-# 8) FAQ Tile Display
-# ------------------------------------------------------------
-def display_faq_tiles():
-    st.markdown("### 💬 Ask a Question")
-    categories = list(FAQ.keys())
-    for row_start in range(0, len(categories), 3):
-        row = categories[row_start:row_start+3]
-        cols = st.columns(len(row))
-        for i, cat in enumerate(row):
-            with cols[i]:
-                st.markdown(f"**📂 {cat}**")
-                sel = st.selectbox(f"Select a {cat} question:", ["-- Choose --"] + FAQ[cat], key=f"faq_{cat}_{random.randint(1,10000)}")
-                if sel != "-- Choose --":
-                    process_question(sel)
-
-# ------------------------------------------------------------
-# 9) Q&A Processing Function
+# 8) Question Handler
 # ------------------------------------------------------------
 def process_question(q):
     a = answer_for_question(q)
@@ -275,24 +244,20 @@ def process_question(q):
     })
     st.session_state.messages.append({"role": "user", "content": q})
     st.session_state.qa_history.append({
-        "q": q, "a": a, "sql": "",
-        "df_dict": df.to_dict(orient="list"),
+        "q": q, "a": a, "df_dict": df.to_dict(orient="list"),
         "ts": datetime.datetime.now().isoformat(timespec="seconds"), "fb": None
     })
     name = f"Chat {len(st.session_state.chat_sessions) + 1}"
     st.session_state.chat_sessions[name] = {
         "messages": copy.deepcopy(st.session_state.messages),
-        "qa_history": copy.deepcopy(st.session_state.qa_history),
+        "qa_history": copy.deepcopy(st.session_state.qa_history)
     }
     save_user_memory()
     safe_rerun()
 
 # ------------------------------------------------------------
-# 10) Render Q&A Blocks
+# 9) Q&A Display
 # ------------------------------------------------------------
-if not st.session_state.messages and not st.session_state.qa_history:
-    display_faq_tiles()
-
 for idx, item in enumerate(st.session_state.qa_history):
     cstar, qtext = st.columns([0.1, 0.9])
     with qtext:
@@ -300,35 +265,38 @@ for idx, item in enumerate(st.session_state.qa_history):
     with cstar:
         if st.button("⭐", key=f"star_top_{idx}"):
             st.session_state.starred.append({"q": item["q"], "a": item["a"]})
-            save_user_memory()
-            safe_rerun()
+            save_user_memory(); safe_rerun()
     st.info(item["a"])
-
     df = pd.DataFrame(item["df_dict"])
     t1, t2 = st.tabs(["📊 Results", "📈 Chart"])
-    with t1:
-        st.dataframe(df, use_container_width=True)
-    with t2:
-        fig = px.bar(df, x="SKU", y=["Sales", "Forecast"])
-        st.plotly_chart(fig, use_container_width=True)
-
+    with t1: st.dataframe(df, use_container_width=True)
+    with t2: st.plotly_chart(px.bar(df, x="SKU", y=["Sales", "Forecast"]), use_container_width=True)
     c1, c2, _ = st.columns([0.1, 0.1, 0.8])
     with c1:
         if st.button("👍", key=f"up_{idx}", disabled=item["fb"] == "up"):
-            item["fb"] = "up"
-            save_user_memory()
-            safe_rerun()
+            item["fb"] = "up"; save_user_memory(); safe_rerun()
     with c2:
         if st.button("👎", key=f"down_{idx}", disabled=item["fb"] == "down"):
-            item["fb"] = "down"
-            save_user_memory()
-            safe_rerun()
+            item["fb"] = "down"; save_user_memory(); safe_rerun()
 
 # ------------------------------------------------------------
-# 11) Chat Input + FAQ Reload
+# 10) Chat Input
 # ------------------------------------------------------------
 prompt = st.chat_input("Ask about sales, devices, or logistics…")
 if prompt:
     process_question(prompt)
 
-display_faq_tiles()
+# ------------------------------------------------------------
+# 11) Show FAQ (After Question Answered)
+# ------------------------------------------------------------
+if st.session_state.qa_history:
+    st.markdown("### 💬 Select a question from dropdown or ask a question in the chat below.")
+    categories = list(FAQ.keys())
+    cols = st.columns(len(categories))
+    for i, cat in enumerate(categories):
+        with cols[i]:
+            st.markdown(f"<div class='faq-card'><b>{cat}</b>", unsafe_allow_html=True)
+            sel = st.selectbox("", ["-- Choose --"] + FAQ[cat], key=f"faq_{cat}_{random.randint(1,9999)}")
+            st.markdown("</div>", unsafe_allow_html=True)
+            if sel != "-- Choose --":
+                process_question(sel)
