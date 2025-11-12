@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Wireless Cortex AI v5.9 — Full Stable (Chat + Charts + Feedback + Auto-Scroll + Sidebar Q&A)
+# Wireless Cortex AI v6.0 — Enhanced (6 KPIs + Info + Memory + Starred)
 # ------------------------------------------------------------
 import streamlit as st
 import time, random, datetime, copy
@@ -56,7 +56,6 @@ def log_feedback_to_sheet(sheet_url, row):
     except Exception:
         return False
 
-
 # ------------------------------------------------------------
 # 1) PAGE CONFIG
 # ------------------------------------------------------------
@@ -66,32 +65,20 @@ st.set_page_config(page_title="Wireless Cortex AI", page_icon="📶", layout="wi
 # 2) SESSION STATE
 # ------------------------------------------------------------
 defaults = {
-    "theme_mode": "light",
     "messages": [],
     "qa_history": [],
     "chat_sessions": {},
     "local_feedback_cache": [],
-    "sidebar_source": None,
-    "sidebar_question": None
+    "starred": [],
 }
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
 # ------------------------------------------------------------
-# 3) THEME SETUP (CSS)
+# 3) THEME (Fixed Light Mode)
 # ------------------------------------------------------------
-def toggle_theme():
-    st.session_state.theme_mode = (
-        "dark" if st.session_state.theme_mode == "light" else "light"
-    )
-
-
-theme = st.session_state.theme_mode
-if theme == "dark":
-    bg, text, card, accent, ai = "#0B1221", "#E0E6ED", "#111C33", "#3C9DF3", "#1C2B47"
-else:
-    bg, text, card, accent, ai = "#F5F7FB", "#000000", "#FFFFFF", "#007BFF", "#E6F2FF"
+bg, text, card, accent, ai = "#F5F7FB", "#000000", "#FFFFFF", "#007BFF", "#E6F2FF"
 
 st.markdown(
     f"""
@@ -114,7 +101,7 @@ h1,h2,h3,h4,h5,h6 {{
 }}
 .chat-bubble-ai {{
     background-color:{ai};
-    color:#E8EEF7;
+    color:#000000;
     padding:10px 14px;
     border-radius:15px;
     margin:8px 0;
@@ -124,86 +111,95 @@ h1,h2,h3,h4,h5,h6 {{
 #bottom_anchor {{
     height: 1px;
 }}
+.info-icon {{
+    color:{accent};
+    text-decoration:none;
+    font-size:22px;
+}}
+.info-icon:hover {{
+    cursor:pointer;
+    opacity:0.7;
+}}
 </style>
 """,
     unsafe_allow_html=True,
 )
 
 # ------------------------------------------------------------
-# 4) SIDEBAR (Simplified — Quick Insights Removed)
+# 4) SIDEBAR (Simplified — Memory + Starred)
 # ------------------------------------------------------------
 with st.sidebar:
     st.title("⚙️ Cortex Controls")
 
-    # ---- Chat Management ----
-    st.subheader("💬 Chat History")
+    # ---- Previous Chats ----
+    st.subheader("💬 Previous Chats")
     session_keys = list(st.session_state.chat_sessions.keys())
     if session_keys:
-        chosen = st.radio("Previous Chats", session_keys, key="chat_radio")
-        if st.button("📂 Load Chat", use_container_width=True):
-            saved = st.session_state.chat_sessions.pop(chosen)
-            st.session_state.messages = saved.get("messages", [])
-            st.session_state.qa_history = saved.get("qa_history", [])
+        chosen = st.selectbox("Select Previous Chat", session_keys, key="chat_radio")
+        if chosen:
+            saved = st.session_state.chat_sessions[chosen]
+            st.session_state.messages = copy.deepcopy(saved.get("messages", []))
+            st.session_state.qa_history = copy.deepcopy(saved.get("qa_history", []))
             safe_rerun()
     else:
         st.caption("No previous chats yet.")
 
-    if st.button("🗑️ Start New Chat", use_container_width=True):
-        if st.session_state.messages or st.session_state.qa_history:
-            name = f"Chat {len(st.session_state.chat_sessions) + 1}"
-            st.session_state.chat_sessions[name] = {
-                "messages": copy.deepcopy(st.session_state.messages),
-                "qa_history": copy.deepcopy(st.session_state.qa_history),
-            }
-        st.session_state.messages = []
-        st.session_state.qa_history = []
-        safe_rerun()
-
-    if st.button("🌗 Toggle Dark/Light Mode", use_container_width=True):
-        toggle_theme()
-        safe_rerun()
-
     st.markdown("---")
 
-    # ---- Info & Tools ----
-    st.subheader("🔗 Info & Tools")
+    # ---- Starred Questions ----
+    st.subheader("⭐ Starred Q&As")
+    if st.session_state.starred:
+        for star in st.session_state.starred:
+            st.markdown(f"**{star['q']}**  \n> {star['a']}")
+    else:
+        st.caption("No starred items yet.")
+
+    st.markdown("---")
+    st.caption("**Wireless Cortex AI v6.0 | 6 KPIs + Info + Starred + Memory**")
+
+# ------------------------------------------------------------
+# 5) HEADER + INFO ICON + 6 KPIs
+# ------------------------------------------------------------
+info_link = (
+    "https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/"
+    "edit?gid=0#gid=0"
+)
+
+col_title, col_info = st.columns([0.92, 0.08])
+with col_title:
     st.markdown(
-        "[📘 Open Info Sheet]"
-        "(https://docs.google.com/spreadsheets/d/1p0srBF_lMOAlVv-fVOgWqw1M2y8KG3zb7oQj_sAb42Y/"
-        "edit?gid=0#gid=0)",
+        f"<h1 style='text-align:center;color:{accent};'>📶 Wireless Cortex AI</h1>"
+        "<p style='text-align:center;font-size:18px;color:gray;'>Your Retail Intelligence Companion</p>",
+        unsafe_allow_html=True,
+    )
+with col_info:
+    st.markdown(
+        f"<a href='{info_link}' target='_blank' title='Click for more Information' class='info-icon'>ℹ️</a>",
         unsafe_allow_html=True,
     )
 
-    st.markdown("---")
-    st.caption(
-        "**Wireless Cortex AI v5.9 | Chat + Chart + Feedback + Auto-Scroll**"
-    )
+# --- KPIs (6 metrics in one row)
+kpi_names = [
+    "📈 Forecast Accuracy",
+    "📦 Active SKUs",
+    "🔋 Activations (7d)",
+    "💰 Revenue Growth",
+    "📊 Channel Uplift",
+    "📆 Forecast Horizon",
+]
+kpi_values = [
+    f"{random.uniform(88,95):.1f}%",
+    f"{random.randint(2800,4200):,}",
+    f"{random.randint(23000,38000):,}",
+    f"{random.uniform(5,12):.1f}%",
+    f"{random.uniform(3,9):.1f}%",
+    f"{random.randint(30,90)} days",
+]
+cols = st.columns(6)
+for i in range(6):
+    with cols[i]:
+        st.metric(kpi_names[i], kpi_values[i])
 
-
-
-# ------------------------------------------------------------
-# 5) HEADER + KPIs
-# ------------------------------------------------------------
-st.markdown(
-    f"""
-<h1 style='text-align:center;color:{accent};'>📶 Wireless Cortex AI</h1>
-<p style='text-align:center;font-size:18px;color:gray;'>Your Retail Intelligence Companion</p>
-""",
-    unsafe_allow_html=True,
-)
-
-cols = st.columns(4)
-with cols[0]:
-    st.metric("📈 Forecast Accuracy", f"{random.uniform(88,95):.1f}%")
-with cols[1]:
-    st.metric("📦 Active SKUs", f"{random.randint(2800,4200):,}")
-with cols[2]:
-    st.metric("🔋 Total Activations (7d)", f"{random.randint(23000,38000):,}")
-with cols[3]:
-    sources = ["Sales", "Inventory", "Shipments", "Pricing", "Forecast"]
-    connected = [f"{s} ✅" if random.random() > 0.2 else f"{s} ❌" for s in sources]
-    st.selectbox("🌐 Active Data Sources", connected)
-    
 # ------------------------------------------------------------
 # 6) Q&A Logic
 # ------------------------------------------------------------
@@ -291,10 +287,16 @@ if not st.session_state.messages and not st.session_state.qa_history:
                 st.session_state.qa_history.append({"q":sel,"a":a,"sql":sql,
                     "df_dict":df.to_dict(orient="list"),
                     "ts":datetime.datetime.now().isoformat(timespec="seconds"),"fb":None})
+                # Save session snapshot
+                name = f"Chat {len(st.session_state.chat_sessions) + 1}"
+                st.session_state.chat_sessions[name] = {
+                    "messages": copy.deepcopy(st.session_state.messages),
+                    "qa_history": copy.deepcopy(st.session_state.qa_history),
+                }
                 safe_rerun()
 
 # ------------------------------------------------------------
-# 8) Render Q&A Blocks + Feedback + Chart
+# 8) Render Q&A Blocks + Feedback + Chart + Star
 # ------------------------------------------------------------
 for idx, item in enumerate(st.session_state.qa_history):
     st.markdown(f"**🧠 Question:** {item['q']}")
@@ -325,12 +327,12 @@ for idx, item in enumerate(st.session_state.qa_history):
                 fig = px.pie(df, names="SKU", values="Sales")
             st.plotly_chart(fig, use_container_width=True)
 
-    c1, c2, _ = st.columns([0.1, 0.1, 0.8])
+    c1, c2, c3, _ = st.columns([0.08, 0.08, 0.08, 0.76])
     with c1:
         if st.button("👍", key=f"up_{idx}", disabled=item["fb"] == "up"):
             item["fb"] = "up"
             log_feedback_to_sheet(
-                "https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit?gid=0#gid=0",
+                SHEET_URL,
                 [
                     datetime.datetime.now().isoformat(timespec="seconds"),
                     item["q"],
@@ -343,7 +345,7 @@ for idx, item in enumerate(st.session_state.qa_history):
         if st.button("👎", key=f"down_{idx}", disabled=item["fb"] == "down"):
             item["fb"] = "down"
             log_feedback_to_sheet(
-                "https://docs.google.com/spreadsheets/d/1aRawuCX4_dNja96WdLHxEsZ8J6yPHqM4xEPA-f26wOE/edit?gid=0#gid=0",
+                SHEET_URL,
                 [
                     datetime.datetime.now().isoformat(timespec="seconds"),
                     item["q"],
@@ -352,12 +354,16 @@ for idx, item in enumerate(st.session_state.qa_history):
                 ],
             )
             safe_rerun()
+    with c3:
+        if st.button("⭐", key=f"star_{idx}"):
+            st.session_state.starred.append({"q": item["q"], "a": item["a"]})
+            safe_rerun()
 
 # Invisible scroll anchor
 st.markdown("<div id='bottom_anchor'></div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
-# 9) Chat Input — Ask new question + Auto-Scroll
+# 9) Chat Input — Ask new question + Auto-Save
 # ------------------------------------------------------------
 prompt = st.chat_input("Ask about sales, devices, or logistics…")
 if prompt:
@@ -365,41 +371,25 @@ if prompt:
     with st.spinner("🤖 Cortex AI is thinking..."):
         time.sleep(1.0)
 
-    # Simulated answer logic
-    a = "⚠️ Limited Data — working on getting in more data sources"
-    if not a.startswith("⚠️"):
-        sql = f"SELECT * FROM demo_table WHERE topic='{prompt[:60]}';"
-        df = pd.DataFrame(
-            {
-                "SKU": ["A15", "A16", "iPhone 16", "Moto G"],
-                "Sales": [random.randint(1000, 3000) for _ in range(4)],
-                "Forecast": [random.randint(1000, 3000) for _ in range(4)],
-            }
-        )
-        st.session_state.qa_history.append(
-            {
-                "q": prompt,
-                "a": a,
-                "sql": sql,
-                "df_dict": df.to_dict(orient="list"),
-                "ts": datetime.datetime.now().isoformat(timespec="seconds"),
-                "fb": None,
-            }
-        )
-    else:
-        st.session_state.qa_history.append(
-            {
-                "q": prompt,
-                "a": a,
-                "sql": "",
-                "df_dict": {},
-                "ts": datetime.datetime.now().isoformat(timespec="seconds"),
-                "fb": None,
-            }
-        )
+    a = answer_for_question(prompt)
+    df = pd.DataFrame(
+        {"SKU": ["A15", "A16", "iPhone 16", "Moto G"],
+         "Sales": [random.randint(1000,3000) for _ in range(4)],
+         "Forecast": [random.randint(1000,3000) for _ in range(4)]})
+    st.session_state.qa_history.append(
+        {"q": prompt, "a": a, "sql": "", "df_dict": df.to_dict(orient="list"),
+         "ts": datetime.datetime.now().isoformat(timespec="seconds"), "fb": None}
+    )
+
+    # Save current session
+    name = f"Chat {len(st.session_state.chat_sessions) + 1}"
+    st.session_state.chat_sessions[name] = {
+        "messages": copy.deepcopy(st.session_state.messages),
+        "qa_history": copy.deepcopy(st.session_state.qa_history),
+    }
     safe_rerun()
 
-# Auto-scroll to bottom
+# Auto-scroll
 st.markdown(
     """
 <script>
