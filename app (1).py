@@ -302,7 +302,7 @@ if prompt:
     process_question(prompt)
 
 # ------------------------------------------------------------
-# ALWAYS SHOW FAQ — instant answer + delayed reset
+# ALWAYS SHOW FAQ — instant answer + safe reset (v6.4.6-patch1)
 # ------------------------------------------------------------
 st.markdown(
     f"### <span style='color:{accent};'>💬 Select a question from dropdown or ask a question in the chat below.</span>",
@@ -313,8 +313,9 @@ def on_faq_change(key):
     sel = st.session_state.get(key)
     if sel and sel != "-- Choose --":
         process_question(sel)
-        # mark dropdown for reset after next render
-        st.session_state.pending_reset = key
+        # safely queue the reset for next rerun
+        st.session_state["pending_reset"] = key
+        safe_rerun()
 
 categories = list(FAQ.keys())
 cols = st.columns(len(categories))
@@ -331,8 +332,8 @@ for i, cat in enumerate(categories):
         )
         st.markdown("</div>", unsafe_allow_html=True)
 
-# Reset dropdown after answer is shown
-if st.session_state.pending_reset:
+# Handle reset safely right after rerun
+if "pending_reset" in st.session_state and st.session_state.pending_reset:
     key = st.session_state.pending_reset
-    st.session_state[key] = "-- Choose --"
+    st.session_state.update({key: "-- Choose --"})
     st.session_state.pending_reset = None
